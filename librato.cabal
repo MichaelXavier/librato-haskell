@@ -1,0 +1,41 @@
+name:                librato
+version:             0.0.0.0
+synopsis:            Client library for Librato Metrics
+-- description:         
+license:             MIT
+license-file:        LICENSE
+author:              Michael Xavier
+maintainer:          michael@michaelxavier.net
+copyright:           Copyright (c) Michael Xavier 2013
+category:            Network
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Network.Librato
+                       Network.Librato.Types
+  -- other-modules:       
+  build-depends:       base           == 4.6.*,
+                       aeson          == 0.*,
+                       data-default,
+                       http-types     == 0.*,
+                       lens           == 3.*,
+                       classy-prelude == 0.*,
+                       http-types,
+                       http-streams   == 0.*,
+                       transformers
+
+test-suite spec
+  type:           exitcode-stdio-1.0
+  main-is:        Spec.hs
+  hs-source-dirs: test,src
+  build-depends:       base               == 4.6.*,
+                       data-default,
+                       classy-prelude     == 0.*,
+                       lens               == 3.*,
+                       hspec              == 1.*,
+                       hspec-expectations == 0.*,
+                       http-types         == 0.*,
+                       http-streams       == 0.*,
+                       transformers
