@@ -10,6 +10,7 @@ module Network.Librato.Types ( LibratoM
                              , HasClientConfiguration(..)
                              , PaginationOptions(..)
                              , LibratoResponse(..)
+                             , ErrorDetail(..)
                              , QueryLike(..)
                              , HasPaginationOptions(..)) where
 
@@ -17,6 +18,7 @@ import ClassyPrelude
 import Control.Lens
 import Control.Lens.TH
 import Control.Monad.Trans.State (StateT)
+import Data.Aeson (FromJSON(..))
 import Data.Default
 import Network.Http.Client ( Hostname
                            , Port)
@@ -38,7 +40,7 @@ makeClassy ''ClientConfiguration
 
 defaultConfiguration :: ByteString -> ByteString -> ClientConfiguration
 defaultConfiguration = ClientConfiguration "metrics-api.librato.com" 80 "/v1" ua
-  where ua = "Network.Librato/" <> version <> " (haskell)"
+  where ua = "Network.Librato/" ++ version ++ " (haskell)"
 
 --TODO: ordering
 
@@ -63,8 +65,13 @@ data Metric = Counter { _metricName         :: Text
 
 makeClassy ''Metric
 
-data LibratoResponse a = LibratoSuccess a |
-                         LibratoError Text deriving (Show, Eq) -- fix error type
+type LibratoResponse a = Either ErrorDetail a
+
+data ErrorDetail = ErrorDetail --TODO
+
+instance FromJSON ErrorDetail where
+  parseJSON = undefined
+
 
 instance QueryLike PaginationOptions where
   toQuery po = [ ("offset", Just . encodeUtf8 . show $ po ^. offset)

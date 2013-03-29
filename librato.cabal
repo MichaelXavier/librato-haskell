@@ -20,10 +20,11 @@ library
                        aeson          == 0.*,
                        data-default,
                        http-types     == 0.*,
+                       io-streams     == 1.*,
                        lens           == 3.*,
                        classy-prelude == 0.*,
                        http-types,
-                       http-streams   == 0.*,
+                       http-streams   >= 0.4 && <= 1.0,
                        transformers
 
 test-suite spec
@@ -31,11 +32,13 @@ test-suite spec
   main-is:        Spec.hs
   hs-source-dirs: test,src
   build-depends:       base               == 4.6.*,
+                       aeson              == 0.*,
                        data-default,
                        classy-prelude     == 0.*,
                        lens               == 3.*,
                        hspec              == 1.*,
                        hspec-expectations == 0.*,
                        http-types         == 0.*,
-                       http-streams       == 0.*,
+                       http-streams   >= 0.4 && <= 1.0,
+                       io-streams         == 1.*,
                        transformers

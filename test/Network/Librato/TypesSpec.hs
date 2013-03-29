@@ -17,4 +17,3 @@ spec = do
 
 defaultPagination :: PaginationOptions
 defaultPagination = def
-
