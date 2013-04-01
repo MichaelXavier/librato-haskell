@@ -23,6 +23,13 @@ spec = do
     it "parses the example documentation" $
       paginatedMetricsResponseString `shouldParseJSON` paginatedMetricsResponse
 
+  describe "QueryLike (PaginatedRequest MetricsSearch)" $ do
+    it "renders properly" $
+      toQuery paginatedMetricsSearch `shouldBe` [ ("tags[]", Just "bar")
+                                                , ("name", Just "foo")
+                                                , ("offset", Just "0")
+                                                , ("length", Just "100")]
+
 defaultPagination :: PaginationOptions
 defaultPagination = def
 
@@ -80,3 +87,9 @@ paginatedMetricsResponse = PaginatedResponse meta [counter, gauge]
   where meta    = PaginationMeta 10 20 50
         counter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests"
         gauge   = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp"
+
+paginatedMetricsSearch :: PaginatedRequest MetricsSearch
+paginatedMetricsSearch = PaginatedRequest defaultPagination defaultMetricsSearch
+
+defaultMetricsSearch :: MetricsSearch
+defaultMetricsSearch = MetricsSearch (Just "foo") [Tag "bar"]

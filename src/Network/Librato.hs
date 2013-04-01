@@ -42,23 +42,6 @@ import Network.Librato.Types
 
 ---- Metrics
 
-data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- case insensitive
-                                   , _metricsSearchPagination :: PaginationOptions
-                                   , _metricsSearchTags       :: [Tag] } deriving (Show, Eq)
-
-makeClassy ''MetricsSearch
-
---instance HasPagination MetricsSearch where
---  pagination = _metricsSearchPagination
-
-instance Default MetricsSearch where
-  def = MetricsSearch Nothing def empty
-
-instance QueryLike MetricsSearch where
-  toQuery ms = tagQueries ++ maybeToList nameQuery
-    where nameQuery       = ("name", ) . Just . encodeUtf8 <$> ms ^. metricsNamed
-          tagQueries      = map toTagQuery $ ms ^. metricsSearchTags
-          toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
 
 --getMetrics :: MetricsSearch -> LibratoM (LibratoResponse [Metric])
 --getMetrics = undefined

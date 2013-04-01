@@ -1,9 +1,10 @@
-{-# LANGUAGE NoImplicitPrelude         #-}
-{-# LANGUAGE TemplateHaskell           #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE FunctionalDependencies    #-}
-{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FlexibleInstances      #-}
 module Network.Librato.Types ( LibratoM
                              , Tag(..)
                              , HasTag(..)
@@ -19,6 +20,10 @@ module Network.Librato.Types ( LibratoM
                              , LibratoResponse(..)
                              , ErrorDetail(..)
                              , QueryLike(..)
+                             , PaginatedRequest(..)
+                             , HasPaginatedRequest(..)
+                             , MetricsSearch(..)
+                             , HasMetricsSearch(..)
                              , HasPaginationOptions(..)) where
 
 import ClassyPrelude
@@ -135,3 +140,29 @@ instance FromJSON (PaginatedResponse Metric) where
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"
                                               <*> obj .: payloadKey
+
+data PaginatedRequest a = PaginatedRequest {
+    _requestPagination :: PaginationOptions
+  , _requestQuery      :: a
+} deriving (Show, Eq)
+
+makeClassy ''PaginatedRequest
+
+instance QueryLike a => QueryLike (PaginatedRequest a) where
+  toQuery po = toQuery innerQuery ++ toQuery pagination
+    where pagination = po ^. requestPagination
+          innerQuery = po ^. requestQuery
+
+data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- case insensitive
+                                   , _metricsSearchTags       :: [Tag] } deriving (Show, Eq)
+
+makeClassy ''MetricsSearch
+
+instance Default MetricsSearch where
+  def = MetricsSearch Nothing empty
+
+instance QueryLike MetricsSearch where
+  toQuery ms = tagQueries ++ maybeToList nameQuery
+    where nameQuery       = ("name", ) . Just . encodeUtf8 <$> ms ^. metricsNamed
+          tagQueries      = map toTagQuery $ ms ^. metricsSearchTags
+          toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
