@@ -3,8 +3,8 @@
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-module Network.Librato ( MetricsSearch(..)
-                       , HasMetricsSearch(..)
+{-# LANGUAGE FlexibleContexts     #-}
+module Network.Librato ( getMetrics
                        , module Network.Librato.Types) where
 
 import ClassyPrelude
@@ -36,15 +36,18 @@ import Network.Http.Client ( sendRequest
 import Network.HTTP.Types ( QueryLike(..)
                           , renderQuery)
 import System.IO.Streams.Attoparsec (parseFromStream)
-import System.IO.Streams (InputStream)
+import System.IO.Streams ( InputStream
+                         , fromGenerator
+                         , yield
+                         , Generator)
 
 import Network.Librato.Types
 
 ---- Metrics
 
 
---getMetrics :: MetricsSearch -> LibratoM (LibratoResponse [Metric])
---getMetrics = undefined
+getMetrics :: (Monad m, MonadIO m) => PaginatedRequest MetricsSearch -> LibratoM m (InputStream Metric)
+getMetrics params = getRequestStreaming "/metrics" params
 --
 ---- TODO: flesh out
 --data MetricLookup = MetricLookup deriving (Show, Eq)
@@ -124,25 +127,37 @@ reqFromConf conf path meth = buildRequest $ do
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
 
---getRequestStreaming :: ( QueryLike params
---                       , HasPagination params
---                       , FromJSON resp
---                       , MonadIO m
---                       , Monad m)
---                       => params
---                       -> ByteString
---                       -> (resp -> [a])
---                       -> LibratoM m (InputStream a)
---getRequestStreaming params path unwrap = fromGenerator generator
---  where generator = pageGenerator params path unwrap
---
---pageGenerator :: ( QueryLike params
---                 , HasPagination params
---                 , FromJSON resp
---                 , MonadIO m
---                 , Monad m)
---                 => params
---                 -> ByteString
---                 -> (resp -> [a])
---                 -> LibratoM m (Generator a ())
---pageGenerator params path unwrap = getEachPage
+getRequestStreaming :: ( QueryLike query
+                       , FromJSON (PaginatedResponse a)
+                       , MonadIO m
+                       , Monad m)
+                       => ByteString
+                       -> PaginatedRequest query
+                       -> LibratoM m (InputStream a)
+getRequestStreaming path params = liftIO $ fromGenerator generator
+  where generator = pageGenerator path params
+
+--TODO: eitherT
+pageGenerator :: ( QueryLike query , FromJSON (PaginatedResponse a)) => ByteString -> PaginatedRequest query -> Generator a ()
+pageGenerator path params = getPages path params
+
+--getPages :: (Monad m, MonadIO m) => ByteString -> PaginatedRequest query -> m ()
+getPages path params = do
+  Right result <- liftIO $ getPaginatedPage path params
+  let meta = result ^. responseMeta
+  yieldResults result
+  let params' = nextPageParams meta
+  unless (atEnd meta) $ getPages path params'
+  where atEnd meta = len + offset >= found
+          where len    = meta ^. responseLength
+                offset = meta ^. responseOffset
+                found  = meta ^. responseFound
+        yieldResults :: PaginatedResponse a -> Generator a ()
+        yieldResults result = mapM_ yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
+        nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
+
+getPaginatedPage :: ( QueryLike query , FromJSON (PaginatedResponse a)) => ByteString -> query -> IO (LibratoResponse (PaginatedResponse a))
+getPaginatedPage = getPage
+
+getPage :: ( QueryLike query , FromJSON a) => ByteString -> query -> IO (LibratoResponse a)
+getPage = undefined
