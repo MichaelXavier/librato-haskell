@@ -18,6 +18,7 @@ library
   -- other-modules:       
   build-depends:       base           == 4.6.*,
                        aeson          == 0.*,
+                       bytestring,
                        data-default,
                        http-types     == 0.*,
                        io-streams     == 1.*,
@@ -33,6 +34,7 @@ test-suite spec
   hs-source-dirs: test,src
   build-depends:       base               == 4.6.*,
                        aeson              == 0.*,
+                       bytestring,
                        data-default,
                        classy-prelude     == 0.*,
                        lens               == 3.*,
@@ -41,4 +43,5 @@ test-suite spec
                        http-types         == 0.*,
                        http-streams   >= 0.4 && <= 1.0,
                        io-streams         == 1.*,
+                       string-qq,
                        transformers

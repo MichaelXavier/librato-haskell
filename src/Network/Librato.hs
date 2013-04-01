@@ -40,8 +40,6 @@ import System.IO.Streams (InputStream)
 
 import Network.Librato.Types
 
--- TODO: figure out pagination
-
 ---- Metrics
 
 data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- case insensitive
@@ -49,6 +47,9 @@ data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- c
                                    , _metricsSearchTags       :: [Tag] } deriving (Show, Eq)
 
 makeClassy ''MetricsSearch
+
+--instance HasPagination MetricsSearch where
+--  pagination = _metricsSearchPagination
 
 instance Default MetricsSearch where
   def = MetricsSearch Nothing def empty
@@ -81,23 +82,27 @@ instance QueryLike MetricsSearch where
 --
 --
 getRequest' :: ( QueryLike params
-              , FromJSON resp
-              , MonadIO m
-              , Monad m)
+               , FromJSON resp
+               , MonadIO m
+               , Monad m)
               => params
               -> ByteString
               -> LibratoM m (LibratoResponse resp)
 getRequest' params path = runWithConf =<< S.get
   where runWithConf conf = do
-          liftIO $ withConnection (openConnection host port) $ \conn -> do
+          liftIO $ withLibratoConnection conf $ \conn -> do
             req <- reqFromConf conf path' GET
             sendRequest conn req emptyBody
             receiveResponse conn responseHandler
-          where host = conf ^. apiHostname
-                port = conf ^. apiPort
         path'            = path ++ renderQuery includeQuestion query
         includeQuestion  = True
         query            = toQuery params
+
+--withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
+withLibratoConnection conf action = withConnection (openConnection host port) action
+  where host = conf ^. apiHostname
+        port = conf ^. apiPort
+
 
 responseHandler :: (FromJSON parsed)
                    => Response
@@ -135,3 +140,26 @@ reqFromConf conf path meth = buildRequest $ do
 
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
+
+--getRequestStreaming :: ( QueryLike params
+--                       , HasPagination params
+--                       , FromJSON resp
+--                       , MonadIO m
+--                       , Monad m)
+--                       => params
+--                       -> ByteString
+--                       -> (resp -> [a])
+--                       -> LibratoM m (InputStream a)
+--getRequestStreaming params path unwrap = fromGenerator generator
+--  where generator = pageGenerator params path unwrap
+--
+--pageGenerator :: ( QueryLike params
+--                 , HasPagination params
+--                 , FromJSON resp
+--                 , MonadIO m
+--                 , Monad m)
+--                 => params
+--                 -> ByteString
+--                 -> (resp -> [a])
+--                 -> LibratoM m (Generator a ())
+--pageGenerator params path unwrap = getEachPage
