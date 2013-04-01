@@ -21,13 +21,13 @@ spec = do
                                            , ("length", Just "100")]
   describe "FromJSON (PaginatedResponse Metric)" $ do
     it "parses the example documentation" $
-      paginatedEmptyMetricsResponseString `shouldParseJSON` paginatedEmptyMetricsResponse
+      paginatedMetricsResponseString `shouldParseJSON` paginatedMetricsResponse
 
 defaultPagination :: PaginationOptions
 defaultPagination = def
 
-paginatedEmptyMetricsResponseString :: LBS.ByteString
-paginatedEmptyMetricsResponseString = [s|
+paginatedMetricsResponseString :: LBS.ByteString
+paginatedMetricsResponseString = [s|
 {
   "query":{
     "found":50,
@@ -75,8 +75,8 @@ paginatedEmptyMetricsResponseString = [s|
 }
 |]
 
-paginatedEmptyMetricsResponse :: PaginatedResponse Metric
-paginatedEmptyMetricsResponse = PaginatedResponse meta [counter, gauge]
+paginatedMetricsResponse :: PaginatedResponse Metric
+paginatedMetricsResponse = PaginatedResponse meta [counter, gauge]
   where meta    = PaginationMeta 10 20 50
         counter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests"
         gauge   = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp"
