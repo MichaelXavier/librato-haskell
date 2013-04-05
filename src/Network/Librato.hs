@@ -67,22 +67,6 @@ getMetrics params = getRequestStreaming "/metrics" params
 --updateMetric = undefined
 --
 --
-getRequest' :: ( QueryLike params
-               , FromJSON resp
-               , MonadIO m
-               , Monad m)
-              => params
-              -> ByteString
-              -> LibratoM m (LibratoResponse resp)
-getRequest' params path = runWithConf =<< S.get
-  where runWithConf conf = do
-          liftIO $ withLibratoConnection conf $ \conn -> do
-            req <- reqFromConf conf path' GET
-            sendRequest conn req emptyBody
-            receiveResponse conn responseHandler
-        path'            = path ++ renderQuery includeQuestion query
-        includeQuestion  = True
-        query            = toQuery params
 
 --withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
 withLibratoConnection conf action = withConnection (openConnection host port) action
@@ -108,8 +92,45 @@ responseHandler resp stream
         parser     = fmap fromJSON json
         --TODO: catch goddamn ParseExceptions, make this less horrible
 
-parseError :: ErrorDetail
-parseError = ErrorDetail
+getRequestStreaming :: ( QueryLike query
+                       , FromJSON (PaginatedResponse a)
+                       , MonadIO m
+                       , Monad m)
+                       => ByteString
+                       -> PaginatedRequest query
+                       -> LibratoM m (InputStream a)
+getRequestStreaming path params = liftIO $ fromGenerator generator
+  where generator = pageGenerator path params
+
+--TODO: eitherT
+pageGenerator :: ( QueryLike query
+                 , FromJSON (PaginatedResponse a))
+                 => ByteString
+                 -> PaginatedRequest query
+                 -> Generator a ()
+pageGenerator path params = do
+  Right result <- liftIO $ getPaginatedPage path params
+  let meta = result ^. responseMeta
+  yieldResults result
+  let params' = nextPageParams meta
+  unless (atEnd meta) $ pageGenerator path params'
+  where atEnd meta = len + offset >= found
+          where len    = meta ^. responseLength
+                offset = meta ^. responseOffset
+                found  = meta ^. responseFound
+        yieldResults :: PaginatedResponse a -> Generator a ()
+        yieldResults result = mapM_ yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
+        nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
+
+getPaginatedPage :: ( QueryLike query
+                    , Monad m
+                    , MonadIO m
+                    , FromJSON (PaginatedResponse a))
+                    => ByteString
+                    -> query
+                    -- -> m (LibratoResponse (PaginatedResponse a))
+                    -> LibratoM m (LibratoResponse (PaginatedResponse a))
+getPaginatedPage = getRequest
 
 --TODO: EitherT
 reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request
@@ -124,40 +145,25 @@ reqFromConf conf path meth = buildRequest $ do
         token    = conf ^. apiToken
         ua       = conf ^. apiUserAgent
 
+parseError :: ErrorDetail
+parseError = ErrorDetail
+
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
 
-getRequestStreaming :: ( QueryLike query
-                       , FromJSON (PaginatedResponse a)
-                       , MonadIO m
-                       , Monad m)
-                       => ByteString
-                       -> PaginatedRequest query
-                       -> LibratoM m (InputStream a)
-getRequestStreaming path params = liftIO $ fromGenerator generator
-  where generator = pageGenerator path params
-
---TODO: eitherT
-pageGenerator :: ( QueryLike query , FromJSON (PaginatedResponse a)) => ByteString -> PaginatedRequest query -> Generator a ()
-pageGenerator path params = getPages path params
-
---getPages :: (Monad m, MonadIO m) => ByteString -> PaginatedRequest query -> m ()
-getPages path params = do
-  Right result <- liftIO $ getPaginatedPage path params
-  let meta = result ^. responseMeta
-  yieldResults result
-  let params' = nextPageParams meta
-  unless (atEnd meta) $ getPages path params'
-  where atEnd meta = len + offset >= found
-          where len    = meta ^. responseLength
-                offset = meta ^. responseOffset
-                found  = meta ^. responseFound
-        yieldResults :: PaginatedResponse a -> Generator a ()
-        yieldResults result = mapM_ yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
-        nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
-
-getPaginatedPage :: ( QueryLike query , FromJSON (PaginatedResponse a)) => ByteString -> query -> IO (LibratoResponse (PaginatedResponse a))
-getPaginatedPage = getPage
-
-getPage :: ( QueryLike query , FromJSON a) => ByteString -> query -> IO (LibratoResponse a)
-getPage = undefined
+getRequest :: ( QueryLike params
+              , FromJSON resp
+              , MonadIO m
+              , Monad m)
+              => ByteString
+              -> params
+              -> LibratoM m (LibratoResponse resp)
+getRequest path params = runWithConf =<< S.get
+  where runWithConf conf = do
+          liftIO $ withLibratoConnection conf $ \conn -> do
+            req <- reqFromConf conf path' GET
+            sendRequest conn req emptyBody
+            receiveResponse conn responseHandler
+        path'            = path ++ renderQuery includeQuestion query
+        includeQuestion  = True
+        query            = toQuery params
