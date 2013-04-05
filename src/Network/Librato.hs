@@ -99,21 +99,25 @@ getRequestStreaming :: ( QueryLike query
                        => ByteString
                        -> PaginatedRequest query
                        -> LibratoM m (InputStream a)
-getRequestStreaming path params = liftIO $ fromGenerator generator
-  where generator = pageGenerator path params
+getRequestStreaming path params = do gen <- pageGenerator path params
+                                     liftIO $ fromGenerator gen
+  --where generator = pageGenerator path params
 
 --TODO: eitherT
-pageGenerator :: ( QueryLike query
-                 , FromJSON (PaginatedResponse a))
-                 => ByteString
-                 -> PaginatedRequest query
-                 -> Generator a ()
+--pageGenerator :: ( QueryLike query
+--                 , FromJSON (PaginatedResponse a)
+--                 , Monad m
+--                 , MonadIO m)
+--                 => ByteString
+--                 -> PaginatedRequest query
+--                 -> LibratoM m (Generator a ())
 pageGenerator path params = do
-  Right result <- liftIO $ getPaginatedPage path params
+  Right result <- getPaginatedPage path params
+  lift $ yieldResults result
   let meta = result ^. responseMeta
-  yieldResults result
   let params' = nextPageParams meta
-  unless (atEnd meta) $ pageGenerator path params'
+  --unless (atEnd meta) $ pageGenerator path params'
+  pageGenerator path params'
   where atEnd meta = len + offset >= found
           where len    = meta ^. responseLength
                 offset = meta ^. responseOffset
