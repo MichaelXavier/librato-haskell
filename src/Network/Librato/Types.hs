@@ -12,6 +12,7 @@ module Network.Librato.Types ( LibratoM
                              , HasMetric(..)
                              , ClientConfiguration(..)
                              , HasClientConfiguration(..)
+                             , defaultConfiguration
                              , PaginationOptions(..)
                              , PaginatedResponse(..)
                              , HasPaginatedResponse(..)
@@ -152,6 +153,9 @@ instance QueryLike a => QueryLike (PaginatedRequest a) where
   toQuery po = toQuery innerQuery ++ toQuery pagination
     where pagination = po ^. requestPagination
           innerQuery = po ^. requestQuery
+
+instance Default a => Default (PaginatedRequest a) where
+  def = PaginatedRequest def def
 
 data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- case insensitive
                                    , _metricsSearchTags       :: [Tag] } deriving (Show, Eq)

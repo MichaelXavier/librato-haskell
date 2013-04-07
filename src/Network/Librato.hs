@@ -2,14 +2,15 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE FlexibleContexts     #-}
 module Network.Librato ( getMetrics
+                       , getAllMetrics
+                       , runLibratoM
                        , module Network.Librato.Types) where
 
 import ClassyPrelude
 import Control.Lens
-import qualified Control.Monad.Trans.State as S
+import qualified Control.Monad.Trans.State as ST
 import Data.Default
 import Data.Ix (inRange)
 import Data.Aeson ( FromJSON
@@ -36,17 +37,18 @@ import Network.Http.Client ( sendRequest
 import Network.HTTP.Types ( QueryLike(..)
                           , renderQuery)
 import System.IO.Streams.Attoparsec (parseFromStream)
-import System.IO.Streams ( InputStream
-                         , fromGenerator
-                         , yield
-                         , Generator)
+import qualified System.IO.Streams as S
 
 import Network.Librato.Types
 
 ---- Metrics
 
+--TODO: monadic composition
+getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO [Metric]
+getAllMetrics params = do stream <- getMetrics params
+                          liftIO $ S.toList stream
 
-getMetrics :: (Monad m, MonadIO m) => PaginatedRequest MetricsSearch -> LibratoM m (InputStream Metric)
+getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
 getMetrics params = getRequestStreaming "/metrics" params
 --
 ---- TODO: flesh out
@@ -68,6 +70,9 @@ getMetrics params = getRequestStreaming "/metrics" params
 --
 --
 
+runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
+runLibratoM = flip ST.evalStateT
+
 --withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
 withLibratoConnection conf action = withConnection (openConnection host port) action
   where host = conf ^. apiHostname
@@ -76,7 +81,7 @@ withLibratoConnection conf action = withConnection (openConnection host port) ac
 
 responseHandler :: (FromJSON parsed)
                    => Response
-                   -> InputStream ByteString
+                   -> S.InputStream ByteString
                    -> IO (LibratoResponse parsed)
 responseHandler resp stream
   | responseOk = do parsed <- parseBody
@@ -93,47 +98,45 @@ responseHandler resp stream
         --TODO: catch goddamn ParseExceptions, make this less horrible
 
 getRequestStreaming :: ( QueryLike query
-                       , FromJSON (PaginatedResponse a)
-                       , MonadIO m
-                       , Monad m)
+                       , FromJSON (PaginatedResponse a))
                        => ByteString
                        -> PaginatedRequest query
-                       -> LibratoM m (InputStream a)
-getRequestStreaming path params = do gen <- pageGenerator path params
-                                     liftIO $ fromGenerator gen
-  --where generator = pageGenerator path params
+                       -> LibratoM IO (S.InputStream a)
+getRequestStreaming path params = do conf <- ST.get 
+                                     let gen = pageGenerator conf path params
+                                     liftIO $ S.fromGenerator gen
 
 --TODO: eitherT
---pageGenerator :: ( QueryLike query
---                 , FromJSON (PaginatedResponse a)
---                 , Monad m
---                 , MonadIO m)
---                 => ByteString
---                 -> PaginatedRequest query
---                 -> LibratoM m (Generator a ())
-pageGenerator path params = do
-  Right result <- getPaginatedPage path params
-  lift $ yieldResults result
-  let meta = result ^. responseMeta
-  let params' = nextPageParams meta
-  --unless (atEnd meta) $ pageGenerator path params'
-  pageGenerator path params'
+pageGenerator :: ( QueryLike query
+                 , FromJSON (PaginatedResponse a))
+                 => ClientConfiguration
+                 -> ByteString
+                 -> PaginatedRequest query
+                 -> S.Generator a () -- is this IO needed? see if we can strip it
+pageGenerator conf path params = runDat
   where atEnd meta = len + offset >= found
           where len    = meta ^. responseLength
                 offset = meta ^. responseOffset
                 found  = meta ^. responseFound
-        yieldResults :: PaginatedResponse a -> Generator a ()
-        yieldResults result = mapM_ yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
+        yieldResults :: PaginatedResponse a -> S.Generator a ()
+        yieldResults result = mapM_ S.yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
         nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
+        runDat = do Right result <- liftIO $ getPaginatedPage conf path params -- FIXME
+                    yieldResults result -- need some sort of lift there
+                    let meta = result ^. responseMeta
+                    let params' = nextPageParams meta
+                    --unless (atEnd meta) $ pageGenerator path params'
+                    pageGenerator conf path params'
+                    return ()
+
 
 getPaginatedPage :: ( QueryLike query
-                    , Monad m
-                    , MonadIO m
                     , FromJSON (PaginatedResponse a))
-                    => ByteString
+                    => ClientConfiguration
+                    -> ByteString
                     -> query
                     -- -> m (LibratoResponse (PaginatedResponse a))
-                    -> LibratoM m (LibratoResponse (PaginatedResponse a))
+                    -> IO (LibratoResponse (PaginatedResponse a))
 getPaginatedPage = getRequest
 
 --TODO: EitherT
@@ -156,14 +159,13 @@ setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
 
 getRequest :: ( QueryLike params
-              , FromJSON resp
-              , MonadIO m
-              , Monad m)
-              => ByteString
+              , FromJSON resp)
+              => ClientConfiguration
+              -> ByteString
               -> params
-              -> LibratoM m (LibratoResponse resp)
-getRequest path params = runWithConf =<< S.get
-  where runWithConf conf = do
+              -> IO (LibratoResponse resp)
+getRequest conf path params = runWithConf
+  where runWithConf = do
           liftIO $ withLibratoConnection conf $ \conn -> do
             req <- reqFromConf conf path' GET
             sendRequest conn req emptyBody
