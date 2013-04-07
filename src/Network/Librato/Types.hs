@@ -30,7 +30,7 @@ module Network.Librato.Types ( LibratoM
 import ClassyPrelude
 import Control.Lens
 import Control.Lens.TH
-import Control.Monad.Trans.State (StateT)
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Aeson ( FromJSON(..)
                   , withObject
                   , Object
@@ -45,7 +45,7 @@ import Network.HTTP.Types (QueryLike(..))
 version :: ByteString
 version = "0.0.0"
 
-type LibratoM m a = StateT ClientConfiguration m a
+type LibratoM m a = ReaderT ClientConfiguration m a
 
 data ClientConfiguration = ClientConfiguration { _apiHostname  :: Hostname
                                                , _apiPort      :: Port
@@ -57,7 +57,7 @@ data ClientConfiguration = ClientConfiguration { _apiHostname  :: Hostname
 makeClassy ''ClientConfiguration
 
 defaultConfiguration :: ByteString -> ByteString -> ClientConfiguration
-defaultConfiguration = ClientConfiguration "metrics-api.librato.com" 80 "/v1" ua
+defaultConfiguration = ClientConfiguration "metrics-api.librato.com" 443 "/v1" ua
   where ua = "Network.Librato/" ++ version ++ " (haskell)"
 
 --TODO: ordering

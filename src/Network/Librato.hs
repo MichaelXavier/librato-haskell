@@ -11,13 +11,15 @@ module Network.Librato ( getMetrics
 import ClassyPrelude
 import Control.Lens
 import Control.Monad ((<=<))
-import qualified Control.Monad.Trans.State as ST
+import qualified Control.Monad.Trans.Reader as R
 import Data.Default
 import Data.Ix (inRange)
 import Data.Aeson ( FromJSON
                   , fromJSON
                   , Result(..)
                   , json)
+import Debug.Trace (traceShow)
+import OpenSSL (withOpenSSL)
 import Network.Http.Client ( sendRequest
                            , emptyBody
                            , receiveResponse
@@ -29,7 +31,8 @@ import Network.Http.Client ( sendRequest
                            , Request
                            , withConnection
                            , getStatusCode
-                           , openConnection
+                           , openConnectionSSL
+                           , baselineContextSSL
                            , http
                            , setContentType
                            , setAccept
@@ -71,7 +74,7 @@ getMetrics = getRequestStreaming "/metrics"
 --
 
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
-runLibratoM = flip ST.evalStateT
+runLibratoM = flip R.runReaderT
 
 
 getRequestStreaming :: ( QueryLike query
@@ -79,7 +82,7 @@ getRequestStreaming :: ( QueryLike query
                        => ByteString
                        -> PaginatedRequest query
                        -> LibratoM IO (S.InputStream a)
-getRequestStreaming path params = do conf <- ST.get 
+getRequestStreaming path params = do conf <- R.ask 
                                      let gen = pageGenerator conf path params
                                      liftIO $ S.fromGenerator gen
 
@@ -123,6 +126,7 @@ parseError = ErrorDetail
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
 
+--TODO: steal redirect following logic from "get" convenience function
 getRequest :: ( QueryLike params
               , FromJSON resp)
               => ClientConfiguration
@@ -133,16 +137,19 @@ getRequest conf path params = runWithConf
   where runWithConf = do
           liftIO $ withLibratoConnection conf $ \conn -> do
             req <- reqFromConf conf path' GET
+            print req
             sendRequest conn req emptyBody
             receiveResponse conn responseHandler
         path'            = path ++ renderQuery includeQuestion query
         includeQuestion  = True
         query            = toQuery params
 
-withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
-withLibratoConnection conf action = withConnection (openConnection host port) action
+withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a
+withLibratoConnection conf action = withConnection establishConnection action
   where host = conf ^. apiHostname
         port = conf ^. apiPort
+        establishConnection = withOpenSSL $ do ctx <- baselineContextSSL
+                                               openConnectionSSL ctx host port
 
 --TODO: EitherT
 reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request
@@ -171,6 +178,6 @@ responseHandler resp stream
                       Success err -> return $ Left ErrorDetail --todo
                       _           -> return $ Left parseError
   where responseOk = inRange (200, 299) $ getStatusCode resp
-        parseBody  = parseFromStream parser stream
+        parseBody  = traceShow resp $ parseFromStream parser stream
         parser     = fmap fromJSON json
         --TODO: catch goddamn ParseExceptions, make this less horrible
