@@ -10,6 +10,7 @@ module Network.Librato ( getMetrics
 
 import ClassyPrelude
 import Control.Lens
+import Control.Monad ((<=<))
 import qualified Control.Monad.Trans.State as ST
 import Data.Default
 import Data.Ix (inRange)
@@ -45,11 +46,10 @@ import Network.Librato.Types
 
 --TODO: monadic composition
 getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO [Metric]
-getAllMetrics params = do stream <- getMetrics params
-                          liftIO $ S.toList stream
+getAllMetrics = liftIO . S.toList <=< getMetrics
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
-getMetrics params = getRequestStreaming "/metrics" params
+getMetrics = getRequestStreaming "/metrics"
 --
 ---- TODO: flesh out
 --data MetricLookup = MetricLookup deriving (Show, Eq)
@@ -73,29 +73,6 @@ getMetrics params = getRequestStreaming "/metrics" params
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip ST.evalStateT
 
---withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
-withLibratoConnection conf action = withConnection (openConnection host port) action
-  where host = conf ^. apiHostname
-        port = conf ^. apiPort
-
-
-responseHandler :: (FromJSON parsed)
-                   => Response
-                   -> S.InputStream ByteString
-                   -> IO (LibratoResponse parsed)
-responseHandler resp stream
-  | responseOk = do parsed <- parseBody
-                    case parsed of
-                      Success a -> return $ Right a
-                      _         -> return $ Left parseError
-  | otherwise  = do parsed <- parseBody
-                    case parsed of
-                      Success err -> return $ Left ErrorDetail --todo
-                      _           -> return $ Left parseError
-  where responseOk = inRange (200, 299) $ getStatusCode resp
-        parseBody  = parseFromStream parser stream
-        parser     = fmap fromJSON json
-        --TODO: catch goddamn ParseExceptions, make this less horrible
 
 getRequestStreaming :: ( QueryLike query
                        , FromJSON (PaginatedResponse a))
@@ -139,18 +116,6 @@ getPaginatedPage :: ( QueryLike query
                     -> IO (LibratoResponse (PaginatedResponse a))
 getPaginatedPage = getRequest
 
---TODO: EitherT
-reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request
-reqFromConf conf path meth = buildRequest $ do
-  http meth fullPath
-  setContentType "application/json"
-  setAccept      "application/json"
-  setAuthorizationBasic user token
-  setUserAgent ua
-  where fullPath = conf ^. apiBasePath ++ path
-        user     = conf ^. apiUser
-        token    = conf ^. apiToken
-        ua       = conf ^. apiUserAgent
 
 parseError :: ErrorDetail
 parseError = ErrorDetail
@@ -173,3 +138,39 @@ getRequest conf path params = runWithConf
         path'            = path ++ renderQuery includeQuestion query
         includeQuestion  = True
         query            = toQuery params
+
+withLibratoConnection :: ClientConfiguration -> (Connection -> a) -> a
+withLibratoConnection conf action = withConnection (openConnection host port) action
+  where host = conf ^. apiHostname
+        port = conf ^. apiPort
+
+--TODO: EitherT
+reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request
+reqFromConf conf path meth = buildRequest $ do
+  http meth fullPath
+  setContentType "application/json"
+  setAccept      "application/json"
+  setAuthorizationBasic user token
+  setUserAgent ua
+  where fullPath = conf ^. apiBasePath ++ path
+        user     = conf ^. apiUser
+        token    = conf ^. apiToken
+        ua       = conf ^. apiUserAgent
+
+responseHandler :: (FromJSON parsed)
+                   => Response
+                   -> S.InputStream ByteString
+                   -> IO (LibratoResponse parsed)
+responseHandler resp stream
+  | responseOk = do parsed <- parseBody
+                    case parsed of
+                      Success a -> return $ Right a
+                      _         -> return $ Left parseError
+  | otherwise  = do parsed <- parseBody
+                    case parsed of
+                      Success err -> return $ Left ErrorDetail --todo
+                      _           -> return $ Left parseError
+  where responseOk = inRange (200, 299) $ getStatusCode resp
+        parseBody  = parseFromStream parser stream
+        parser     = fmap fromJSON json
+        --TODO: catch goddamn ParseExceptions, make this less horrible
