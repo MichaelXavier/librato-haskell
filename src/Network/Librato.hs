@@ -106,7 +106,7 @@ pageGenerator conf path params = runDat
         yieldResults result = mapM_ S.yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
         nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
         runDat = do Right result <- liftIO $ getPaginatedPage conf path params -- FIXME
-                    yieldResults result -- need some sort of lift there
+                    yieldResults result
                     let meta = result ^. responseMeta
                     let params' = nextPageParams meta
                     --unless (atEnd meta) $ pageGenerator path params'
@@ -123,9 +123,6 @@ getPaginatedPage :: ( QueryLike query
                     -> IO (LibratoResponse (PaginatedResponse a))
 getPaginatedPage = getRequest
 
-
-parseError :: ErrorDetail
-parseError = ErrorDetail
 
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
@@ -173,15 +170,19 @@ responseHandler :: (FromJSON parsed)
                    -> S.InputStream ByteString
                    -> IO (LibratoResponse parsed)
 responseHandler resp stream
-  | responseOk = do parsed <- parseBody
-                    case parsed of
-                      Success a -> return $ Right a
-                      _         -> return $ Left parseError
-  | otherwise  = do parsed <- parseBody
-                    case parsed of
-                      Success err -> return $ Left ErrorDetail --todo
-                      _           -> return $ Left parseError
-  where responseOk = inRange (200, 299) $ getStatusCode resp
-        parseBody  = traceShow resp $ parseFromStream parser stream
-        parser     = fmap fromJSON json
+  | responseOk   = do parsed <- parseBody
+                      return $ coerceParsed parsed
+  | unauthorized = return $ Left UnauthorizedError
+  | otherwise    = do parsed <- parseBody
+                      case parsed of
+                        Success err -> return $ Left OtherError --TODO
+                        Error e     -> return $ Left $ ParseError $ pack e
+  where responseOk   = inRange (200, 299) $ getStatusCode resp
+        unauthorized = 401 == getStatusCode resp
+        parseBody    = traceShow resp $ parseFromStream parser stream
+        parser       = fmap fromJSON json
         --TODO: catch goddamn ParseExceptions, make this less horrible
+
+coerceParsed :: Result a -> LibratoResponse a
+coerceParsed (Success a) = Right a
+coerceParsed (Error e)   = Left $ ParseError $ pack e

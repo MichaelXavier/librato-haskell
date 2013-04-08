@@ -103,7 +103,9 @@ instance FromJSON Metric where
 
 type LibratoResponse a = Either ErrorDetail a
 
-data ErrorDetail = ErrorDetail --TODO
+data ErrorDetail = ParseError Text |
+                   OtherError | -- TODO
+                   UnauthorizedError deriving (Show, Eq) -- TODO: more
 
 instance FromJSON ErrorDetail where
   parseJSON = undefined

@@ -40,6 +40,7 @@ test-suite spec
                        classy-prelude     == 0.*,
                        lens               == 3.*,
                        HsOpenSSL,
+                       --httpmock,
                        hspec              == 1.*,
                        hspec-expectations == 0.*,
                        http-types         == 0.*,

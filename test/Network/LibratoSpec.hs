@@ -7,6 +7,8 @@ import Control.Lens
 import Data.Default
 import Network.Librato
 
+--import Network.HTTPMock
+--import Network.HTTPMock.Expectations
 import Test.Hspec
 
 spec :: Spec
@@ -19,6 +21,14 @@ spec = do
         toQuery fullMetricsSearch `shouldBe` [ ("tags[]", Just "tagone")
                                              , ("tags[]", Just "tagtwo")
                                              , ("name", Just "foo")]
+  --describe "GetAllMetrics" $ do
+  --  describe "invalid credentials" $ do
+  --    ("GET", "/v1/metrics") `shouldBeRequestedOnceBy`
+  --      (runWithMocker_ noMetricsMocker $ getAllMetrics')
+
+noMetricsMocker = undefined
+getAllMetrics' = undefined
+      
 
 defaultMetricsSearch :: MetricsSearch
 defaultMetricsSearch = def
