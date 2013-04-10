@@ -27,7 +27,8 @@ library
                        classy-prelude == 0.*,
                        http-types,
                        http-streams   >= 0.4 && <= 1.0,
-                       transformers
+                       transformers,
+                       unordered-containers
 
 test-suite spec
   type:           exitcode-stdio-1.0
@@ -47,4 +48,5 @@ test-suite spec
                        http-streams   >= 0.4 && <= 1.0,
                        io-streams         == 1.*,
                        string-qq,
-                       transformers
+                       transformers,
+                       unordered-containers

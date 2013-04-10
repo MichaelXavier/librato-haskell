@@ -30,8 +30,61 @@ spec = do
                                                 , ("offset", Just "0")
                                                 , ("length", Just "100")]
 
+  describe "FromJSON ErrorDetail" $ do
+    it "parses ParamsErrors" $
+      paramsErrorString `shouldParseJSON` paramsError
+    it "parses RequestError" $
+      requestErrorString `shouldParseJSON` requestError
+    it "parses SystemErrors" $
+      systemErrorString `shouldParseJSON` systemError
+
 defaultPagination :: PaginationOptions
 defaultPagination = def
+
+paramsErrorString :: LBS.ByteString
+paramsErrorString = [s|
+{
+  "errors": {
+    "params": {
+      "name":["is not present"],
+      "start_time":["is not a number"]
+    }
+  }
+}
+|]
+
+paramsError :: ErrorDetail
+paramsError = ParamsError [("name", ["is not present"]), ("start_time", ["is not a number"])]
+
+requestErrorString :: LBS.ByteString
+requestErrorString = [s|
+{
+  "errors": {
+    "request": [
+      "Please use secured connection through https!",
+      "Please provide credentials for authentication."
+    ]
+  }
+}
+|]
+
+requestError :: ErrorDetail
+requestError = RequestError [ "Please use secured connection through https!"
+                            , "Please provide credentials for authentication."]
+
+systemErrorString :: LBS.ByteString
+systemErrorString = [s|
+{
+  "errors": {
+    "system": [
+      "The API is currently down for maintenance. It'll be back shortly."
+    ]
+  }
+}
+|]
+
+systemError :: ErrorDetail
+systemError = SystemError ["The API is currently down for maintenance. It'll be back shortly."]
 
 paginatedMetricsResponseString :: LBS.ByteString
 paginatedMetricsResponseString = [s|

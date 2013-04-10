@@ -3,12 +3,14 @@
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE TupleSections        #-}
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 module Network.Librato ( getMetrics
                        , getAllMetrics
                        , runLibratoM
                        , module Network.Librato.Types) where
 
 import ClassyPrelude
+import Control.Exception (throw)
 import Control.Lens
 import Control.Monad ((<=<))
 import qualified Control.Monad.Trans.Reader as R
@@ -48,8 +50,8 @@ import Network.Librato.Types
 ---- Metrics
 
 --TODO: monadic composition
-getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO [Metric]
-getAllMetrics = consumeStreamingCall getMetrics
+getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse [Metric])
+getAllMetrics params = consumeStreamingCall $ getMetrics params
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
 getMetrics = getRequestStreaming "/metrics"
@@ -78,8 +80,16 @@ runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip R.runReaderT
 
 
-consumeStreamingCall :: MonadIO m => (a -> m (S.InputStream b)) -> a -> m [b]
-consumeStreamingCall req = liftIO . S.toList <=< req
+--TODO: cleanup
+consumeStreamingCall :: LibratoM IO (S.InputStream a) -> LibratoM IO (LibratoResponse [a])
+consumeStreamingCall req = withErrorHandling consume
+  where consume = do stream <- req
+                     xs <- liftIO $ S.toList stream
+                     return $ Right xs
+        withErrorHandling = catch' handleError
+        handleError :: ErrorDetail -> LibratoM IO (LibratoResponse [b])
+        handleError ed = return $ Left ed
+        catch' = flip catch
 
 getRequestStreaming :: ( QueryLike query
                        , FromJSON (PaginatedResponse a))
@@ -97,21 +107,23 @@ pageGenerator :: ( QueryLike query
                  -> ByteString
                  -> PaginatedRequest query
                  -> S.Generator a () -- is this IO needed? see if we can strip it
-pageGenerator conf path params = runDat
+pageGenerator conf path params = do eResult <- getPage
+                                    case eResult of
+                                      Right result -> keepGoing result
+                                      Left e       -> throw e
   where atEnd meta = len + offset >= found
           where len    = meta ^. responseLength
                 offset = meta ^. responseOffset
                 found  = meta ^. responseFound
-        yieldResults :: PaginatedResponse a -> S.Generator a ()
         yieldResults result = mapM_ S.yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
         nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
-        runDat = do Right result <- liftIO $ getPaginatedPage conf path params -- FIXME
-                    yieldResults result
-                    let meta = result ^. responseMeta
-                    let params' = nextPageParams meta
-                    --unless (atEnd meta) $ pageGenerator path params'
-                    pageGenerator conf path params'
-                    return ()
+        getPage = liftIO $ getPaginatedPage conf path params
+        keepGoing result = do yieldResults result
+                              let meta = result ^. responseMeta
+                              let params' = nextPageParams meta
+                              --unless (atEnd meta) $ pageGenerator path params'
+                              pageGenerator conf path params'
+                              return ()
 
 
 getPaginatedPage :: ( QueryLike query
@@ -172,15 +184,20 @@ responseHandler :: (FromJSON parsed)
 responseHandler resp stream
   | responseOk   = do parsed <- parseBody
                       return $ coerceParsed parsed
-  | unauthorized = return $ Left UnauthorizedError
-  | otherwise    = do parsed <- parseBody
-                      case parsed of
-                        Success err -> return $ Left OtherError --TODO
-                        Error e     -> return $ Left $ ParseError $ pack e
-  where responseOk   = inRange (200, 299) $ getStatusCode resp
-        unauthorized = 401 == getStatusCode resp
-        parseBody    = traceShow resp $ parseFromStream parser stream
-        parser       = fmap fromJSON json
+  | unauthorized  = returnError UnauthorizedError
+  | alreadyExists = returnError UnauthorizedError
+  | maintenance   = returnError MaintenanceError
+  | otherwise     = do parsed <- parseBody
+                       case parsed of
+                         Success err -> return $ Left OtherError --TODO
+                         Error e     -> return $ Left $ ParseError $ pack e
+  where responseOk    = inRange (200, 299) $ getStatusCode resp
+        unauthorized  = 401 == getStatusCode resp
+        alreadyExists = 422 == getStatusCode resp
+        maintenance   = 503 == getStatusCode resp
+        parseBody     = traceShow resp $ parseFromStream parser stream
+        parser        = fmap fromJSON json
+        returnError   = return . Left
         --TODO: catch goddamn ParseExceptions, make this less horrible
 
 coerceParsed :: Result a -> LibratoResponse a

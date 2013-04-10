@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE DeriveDataTypeable     #-}
 module Network.Librato.Types ( LibratoM
                              , Tag(..)
                              , HasTag(..)
@@ -37,6 +38,7 @@ import Data.Aeson ( FromJSON(..)
                   , Value(..)
                   , (.:))
 import Data.Aeson.Types (Parser)
+import qualified Data.HashMap.Strict as H
 import Data.Default
 import Network.Http.Client ( Hostname
                            , Port)
@@ -103,12 +105,36 @@ instance FromJSON Metric where
 
 type LibratoResponse a = Either ErrorDetail a
 
-data ErrorDetail = ParseError Text |
-                   OtherError | -- TODO
-                   UnauthorizedError deriving (Show, Eq) -- TODO: more
+data ErrorDetail = ParseError Text               |
+                   ParamsError [(Text, [Text])]  |
+                   RequestError [Text]           |
+                   SystemError [Text]            |
+                   OtherError                    | -- TODO
+                   AlreadyExistsError            |
+                   MaintenanceError              |
+                   UnauthorizedError deriving (Show, Eq, Typeable) -- TODO: more
+
+instance Exception ErrorDetail
+
+parseAtKey :: FromJSON a => Text -> Object -> (Object -> Parser a) -> Parser a
+parseAtKey key obj parser = maybe failure parser' lookupKey
+  where lookupKey = H.lookup key obj
+        failure   = fail $ "Could not find key " ++ keyStr
+        parser'   = withObject keyStr parser
+        keyStr    = unpack key
+                            
 
 instance FromJSON ErrorDetail where
-  parseJSON = undefined
+  parseJSON = withObject "ErrorDetail" $ parseError
+    where parseError o = unwrapError o $ \v ->
+                           parseParamsError v  <|>
+                           parseRequestError v <|>
+                           parseSystemError v  <|>
+                           pure OtherError --TODO
+          unwrapError = parseAtKey "errors"
+          parseParamsError o  = ParamsError  <$> H.toList <$> (o .: "params")
+          parseRequestError o = RequestError <$> o .: "request"
+          parseSystemError o  = SystemError  <$> o .: "system"
 
 instance QueryLike PaginationOptions where
   toQuery po = [ ("offset", Just . encodeUtf8 . show $ po ^. offset)
@@ -172,3 +198,4 @@ instance QueryLike MetricsSearch where
     where nameQuery       = ("name", ) . Just . encodeUtf8 <$> ms ^. metricsNamed
           tagQueries      = map toTagQuery $ ms ^. metricsSearchTags
           toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
+
