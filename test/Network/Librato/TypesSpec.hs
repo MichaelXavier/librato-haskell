@@ -19,6 +19,14 @@ spec = do
     it "renders the correct params" $
       toQuery defaultPagination `shouldBe` [ ("offset", Just "0")
                                            , ("length", Just "100")]
+
+  describe "FromJSON Metric" $ do
+    it "parses a gauge" $
+      defaultGaugeString `shouldParseJSON` defaultGauge
+
+    it "parses a counter" $
+      defaultCounterString `shouldParseJSON` defaultCounter
+
   describe "FromJSON (PaginatedResponse Metric)" $ do
     it "parses the example documentation" $
       paginatedMetricsResponseString `shouldParseJSON` paginatedMetricsResponse
@@ -33,8 +41,10 @@ spec = do
   describe "FromJSON ErrorDetail" $ do
     it "parses ParamsErrors" $
       paramsErrorString `shouldParseJSON` paramsError
+
     it "parses RequestError" $
       requestErrorString `shouldParseJSON` requestError
+
     it "parses SystemErrors" $
       systemErrorString `shouldParseJSON` systemError
 
@@ -136,10 +146,56 @@ paginatedMetricsResponseString = [s|
 |]
 
 paginatedMetricsResponse :: PaginatedResponse Metric
-paginatedMetricsResponse = PaginatedResponse meta [counter, gauge]
+paginatedMetricsResponse = PaginatedResponse meta [ defaultCounter
+                                                  , defaultGauge]
   where meta    = PaginationMeta 10 20 50
-        counter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests"
-        gauge   = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp"
+
+defaultCounter :: Metric
+defaultCounter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests"
+
+
+defaultCounterString :: LBS.ByteString
+defaultCounterString = [s|
+  {
+    "type": "counter",
+    "period": 60,
+    "attributes": {
+      "display_min": 0,
+      "display_transform": null,
+      "display_units_short": "reqs",
+      "created_by_ua": "librato-metrics/0.7.4 (ruby; 1.9.3p194; x86_64-linux) direct-faraday/0.8.4",
+      "display_max": null,
+      "display_units_long": "Requests",
+      "display_stacked": true
+    },
+    "name": "app_requests",
+    "description": "HTTP requests serviced by the app per-minute",
+    "display_name": "app_requests"
+  }
+|]
+
+defaultGauge :: Metric
+defaultGauge = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp"
+
+defaultGaugeString :: LBS.ByteString
+defaultGaugeString = [s|
+    {
+      "type": "gauge",
+      "period": 60,
+      "attributes": {
+        "display_min": 0,
+        "display_transform": null,
+        "display_units_short": "&#176;F",
+        "created_by_ua": "librato-metrics/0.7.4 (ruby; 1.9.3p194; x86_64-linux) direct-faraday/0.8.4",
+        "display_max": null,
+        "display_units_long": "Fahrenheit",
+        "display_stacked": true
+      },
+      "name": "cpu_temp",
+      "description": "Current CPU temperature in Fahrenheit",
+      "display_name": "cpu_temp"
+    }
+|]
 
 paginatedMetricsSearch :: PaginatedRequest MetricsSearch
 paginatedMetricsSearch = PaginatedRequest defaultPagination defaultMetricsSearch
