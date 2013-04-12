@@ -22,6 +22,8 @@ library
                        data-default,
                        http-types     == 0.*,
                        HsOpenSSL,
+                       -- why?
+                       httpmock,
                        io-streams     == 1.*,
                        lens           == 3.*,
                        classy-prelude == 0.*,
@@ -41,7 +43,7 @@ test-suite spec
                        classy-prelude     == 0.*,
                        lens               == 3.*,
                        HsOpenSSL,
-                       --httpmock,
+                       httpmock,
                        hspec              == 1.*,
                        hspec-expectations == 0.*,
                        http-types         == 0.*,

@@ -1,4 +1,4 @@
-CABAL=cabal-dev
+CABAL=cabal
 EXPORTS=PATH=$$PATH:cabal-dev/bin
 CONFIG_OPTS=
 .PHONY: test
