@@ -33,6 +33,7 @@ import Network.Http.Client ( sendRequest
                            , Request
                            , withConnection
                            , getStatusCode
+                           , openConnection
                            , openConnectionSSL
                            , baselineContextSSL
                            , http
@@ -161,8 +162,12 @@ withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a
 withLibratoConnection conf action = withConnection establishConnection action
   where host = conf ^. apiHostname
         port = conf ^. apiPort
-        establishConnection = withOpenSSL $ do ctx <- baselineContextSSL
-                                               openConnectionSSL ctx host port
+        establishConnection
+          | conf ^. apiUseSSL = establishConnectionWithoutSSL
+          | otherwise      = establishConnectionWithoutSSL
+        establishConnectionWithoutSSL = openConnection host port
+        establishConnectionWithSSL    = withOpenSSL $ do ctx <- baselineContextSSL
+                                                         openConnectionSSL ctx host port
 
 --TODO: EitherT
 reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request

@@ -24,14 +24,28 @@ spec = do
   describe "GetAllMetrics" $ do
     it "request the correct path" $
       ("GET", "/v1/metrics") `shouldBeRequestedOnceBy`
-          (runWithMocker_ noMetricsMocker $ getAllMetrics')
+          (runWithMocker_ noMetricsMocker $ getAllMetrics_')
+    it "requests with HTTP basic authentication" $
+      ("Authorization", encodedAuth) `shouldMakeRequestWithHeader`
+          (runWithMocker_ noMetricsMocker $ getAllMetrics_')
+
+
+    --describe "unauthorized request" $ do
 
 --FIXME
 noMetricsMocker :: HTTPMocker
-noMetricsMocker = def
+noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse = (matcher, AlwaysReturns response)
+        matcher       = matchPathAndMethod "/v1/metrics" "GET"
+        response      = FakeResponse status200 "{}" []
 
-getAllMetrics' = getAllMetrics def
-      
+getAllMetrics_' = void $ runLibratoM testingConfig $ getAllMetrics def
+
+testingConfig = ClientConfiguration "127.0.0.1" 4568 "/v1" "librato test" False username token
+
+username    = "testuser"
+token       = "testtoken"
+encodedAuth = "Basic dGVzdHVzZXI6dGVzdHRva2Vu"
 
 defaultMetricsSearch :: MetricsSearch
 defaultMetricsSearch = def

@@ -53,13 +53,14 @@ data ClientConfiguration = ClientConfiguration { _apiHostname  :: Hostname
                                                , _apiPort      :: Port
                                                , _apiBasePath  :: ByteString
                                                , _apiUserAgent :: ByteString 
+                                               , _apiUseSSL    :: Bool 
                                                , _apiUser      :: ByteString
                                                , _apiToken     :: ByteString } deriving (Show, Eq)
 
 makeClassy ''ClientConfiguration
 
 defaultConfiguration :: ByteString -> ByteString -> ClientConfiguration
-defaultConfiguration = ClientConfiguration "metrics-api.librato.com" 443 "/v1" ua
+defaultConfiguration = ClientConfiguration "metrics-api.librato.com" 443 "/v1" ua True
   where ua = "Network.Librato/" ++ version ++ " (haskell)"
 
 --TODO: ordering
