@@ -5,6 +5,7 @@ module Network.LibratoSpec (spec) where
 import ClassyPrelude
 import Control.Lens
 import Data.Default
+import Debug.Trace (traceShow)
 import Network.Librato
 
 import Network.HTTPMock
@@ -24,22 +25,37 @@ spec = do
   describe "GetAllMetrics" $ do
     it "request the correct path" $
       ("GET", "/v1/metrics") `shouldBeRequestedOnceBy`
-          (runWithMocker_ noMetricsMocker $ getAllMetrics_')
+          (fst <$> getFromNoMetricsMocker)
     it "requests with HTTP basic authentication" $
       ("Authorization", encodedAuth) `shouldMakeRequestWithHeader`
-          (runWithMocker_ noMetricsMocker $ getAllMetrics_')
+          (fst <$> getFromNoMetricsMocker)
 
+    describe "unauthorized request" $ do
+      it "returns an UnauthorizedError" $
+        (snd <$> getFromUnauthorizedMocker) `shouldReturn`
+          Left UnauthorizedError
 
-    --describe "unauthorized request" $ do
+--FIXME: garbage
 
---FIXME
+getFromNoMetricsMocker :: IO (HTTPMocker, LibratoResponse [Metric])
+getFromNoMetricsMocker = runWithMocker_ noMetricsMocker $ getAllMetrics'
+
+getFromUnauthorizedMocker :: IO (HTTPMocker, LibratoResponse [Metric])
+getFromUnauthorizedMocker = runWithMocker_ unauthorizedMocker $ getAllMetrics'
+
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse = (matcher, AlwaysReturns response)
         matcher       = matchPathAndMethod "/v1/metrics" "GET"
         response      = FakeResponse status200 "{}" []
 
-getAllMetrics_' = void $ runLibratoM testingConfig $ getAllMetrics def
+unauthorizedMocker :: HTTPMocker
+unauthorizedMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse = (matcher, AlwaysReturns response)
+        matcher       = matchPathAndMethod "/v1/metrics" "GET"
+        response      = FakeResponse status401 "{}" []
+
+getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
 testingConfig = ClientConfiguration "127.0.0.1" 4568 "/v1" "librato test" False username token
 

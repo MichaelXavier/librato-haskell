@@ -55,7 +55,7 @@ getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse 
 getAllMetrics params = consumeStreamingCall $ getMetrics params
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
-getMetrics = getRequestStreaming "/metrics"
+getMetrics search = getRequestStreaming "/metrics" search
 
 --
 ---- TODO: flesh out
@@ -151,7 +151,6 @@ getRequest conf path params = runWithConf
   where runWithConf = do
           liftIO $ withLibratoConnection conf $ \conn -> do
             req <- reqFromConf conf path' GET
-            print req
             sendRequest conn req emptyBody
             receiveResponse conn responseHandler
         path'            = path ++ renderQuery includeQuestion query
@@ -200,7 +199,7 @@ responseHandler resp stream
         unauthorized  = 401 == getStatusCode resp
         alreadyExists = 422 == getStatusCode resp
         maintenance   = 503 == getStatusCode resp
-        parseBody     = traceShow resp $ parseFromStream parser stream
+        parseBody     = parseFromStream parser stream
         parser        = fmap fromJSON json
         returnError   = return . Left
         --TODO: catch goddamn ParseExceptions, make this less horrible
