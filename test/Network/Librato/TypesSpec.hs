@@ -4,6 +4,12 @@
 module Network.Librato.TypesSpec (spec) where
 
 import ClassyPrelude
+import Control.Lens ( (.~)
+                    , (&))
+import qualified Data.Attoparsec.Number as N
+import Data.Aeson ( object
+                  , Value(String)
+                  , (.=))
 import qualified Data.ByteString.Lazy as LBS
 import Data.Default
 import Network.Librato.Types
@@ -47,6 +53,40 @@ spec = do
 
     it "parses SystemErrors" $
       systemErrorString `shouldParseJSON` systemError
+
+  describe "ToJSON Metrics" $
+    it "renders the metrics in order under the gauges/counter keys" $
+      Metrics [ defaultGauge
+              , defaultCounter
+              , defaultCounter & metricName .~ "moar_app_requests" ] `shouldGenerateJSON`
+        object [
+                 "gauges" .=  [
+                   object [
+                     "name"         .= String "cpu_temp"
+                   , "period"       .= N.I 60
+                   , "description"  .= String "Current CPU temperature in Fahrenheit"
+                   , "display_name" .= String "cpu_temp"
+                   , "source"       .= String "app1"
+                   ]
+                 ],
+                 "counters" .= [
+                   object [
+                     "name"         .= String "app_requests"
+                   , "period"       .= N.I 60
+                   , "description"  .= String "HTTP requests serviced by the app per minute"
+                   , "display_name" .= String "app_requests"
+                   , "source"       .= String "app1"
+                   ],
+                   object [
+                     "name"         .= String "moar_app_requests"
+                   , "period"       .= N.I 60
+                   , "description"  .= String "HTTP requests serviced by the app per minute"
+                   , "display_name" .= String "app_requests"
+                   , "source"       .= String "app1"
+                   ]
+                 ]
+               ]
+      
 
 defaultPagination :: PaginationOptions
 defaultPagination = def
@@ -123,7 +163,8 @@ paginatedMetricsResponseString = [s|
       },
       "name": "app_requests",
       "description": "HTTP requests serviced by the app per-minute",
-      "display_name": "app_requests"
+      "display_name": "app_requests",
+      "source": "app1"
     },
     {
       "type": "gauge",
@@ -139,7 +180,8 @@ paginatedMetricsResponseString = [s|
       },
       "name": "cpu_temp",
       "description": "Current CPU temperature in Fahrenheit",
-      "display_name": "cpu_temp"
+      "display_name": "cpu_temp",
+      "source": "app1"
     }
   ]
 }
@@ -151,7 +193,7 @@ paginatedMetricsResponse = PaginatedResponse meta [ defaultCounter
   where meta    = PaginationMeta 10 20 50
 
 defaultCounter :: Metric
-defaultCounter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests"
+defaultCounter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests" (Just "app1")
 
 
 defaultCounterString :: LBS.ByteString
@@ -170,12 +212,13 @@ defaultCounterString = [s|
     },
     "name": "app_requests",
     "description": "HTTP requests serviced by the app per-minute",
-    "display_name": "app_requests"
+    "display_name": "app_requests",
+    "source": "app1"
   }
 |]
 
 defaultGauge :: Metric
-defaultGauge = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp"
+defaultGauge = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp" (Just "app1")
 
 defaultGaugeString :: LBS.ByteString
 defaultGaugeString = [s|
@@ -193,7 +236,8 @@ defaultGaugeString = [s|
       },
       "name": "cpu_temp",
       "description": "Current CPU temperature in Fahrenheit",
-      "display_name": "cpu_temp"
+      "display_name": "cpu_temp",
+      "source": "app1"
     }
 |]
 

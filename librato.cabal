@@ -38,6 +38,7 @@ test-suite spec
   hs-source-dirs: test,src
   build-depends:       base               == 4.6.*,
                        aeson              == 0.*,
+                       attoparsec         == 0.*,
                        bytestring,
                        data-default,
                        classy-prelude     == 0.*,

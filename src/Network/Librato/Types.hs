@@ -11,6 +11,8 @@ module Network.Librato.Types ( LibratoM
                              , HasTag(..)
                              , Metric(..)
                              , HasMetric(..)
+                             , Metrics(..)
+                             , HasMetrics(..)
                              , ClientConfiguration(..)
                              , HasClientConfiguration(..)
                              , defaultConfiguration
@@ -36,6 +38,8 @@ import Data.Aeson ( FromJSON(..)
                   , withObject
                   , Object
                   , Value(..)
+                  , ToJSON(..)
+                  , (.:?)
                   , (.:))
 import Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as H
@@ -81,11 +85,13 @@ makeClassy ''Tag
 data Metric = Counter { _metricName         :: Text
                       , _metricPeriod       :: Integer -- TODO: attributes
                       , _metricDescription  :: Text
-                      , _metricDisplayName  :: Text } |
+                      , _metricDisplayName  :: Text
+                      , _metricSource       :: Maybe Text } |
               Gauge   { _metricName         :: Text
                       , _metricPeriod       :: Integer
                       , _metricDescription  :: Text
-                      , _metricDisplayName  :: Text } deriving (Show, Eq)
+                      , _metricDisplayName  :: Text
+                      , _metricSource       :: Maybe Text } deriving (Show, Eq)
 
 makeClassy ''Metric
 
@@ -99,10 +105,12 @@ instance FromJSON Metric where
                                      <*> obj .: "period"
                                      <*> obj .: "description"
                                      <*> obj .: "display_name"
+                                     <*> obj .:? "source"
           parseGauge obj = Gauge <$> obj .: "name"
                                  <*> obj .: "period"
                                  <*> obj .: "description"
                                  <*> obj .: "display_name"
+                                 <*> obj .:? "source"
 
 type LibratoResponse a = Either ErrorDetail a
 
@@ -200,3 +208,10 @@ instance QueryLike MetricsSearch where
           tagQueries      = map toTagQuery $ ms ^. metricsSearchTags
           toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
 
+
+newtype Metrics = Metrics { _unMetrics :: [Metric] }
+
+makeClassy ''Metrics
+
+instance ToJSON Metrics
+  where toJSON = undefined
