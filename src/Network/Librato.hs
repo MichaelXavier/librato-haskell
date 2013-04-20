@@ -52,10 +52,10 @@ import Network.Librato.Types
 
 --TODO: monadic composition
 getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse [Metric])
-getAllMetrics params = consumeStreamingCall $ getMetrics params
+getAllMetrics = consumeStreamingCall . getMetrics
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
-getMetrics search = getRequestStreaming "/metrics" search
+getMetrics = getRequestStreaming "/metrics"
 
 --
 ---- TODO: flesh out
@@ -79,7 +79,6 @@ getMetrics search = getRequestStreaming "/metrics" search
 
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip R.runReaderT
-
 
 --TODO: cleanup
 consumeStreamingCall :: LibratoM IO (S.InputStream a) -> LibratoM IO (LibratoResponse [a])
