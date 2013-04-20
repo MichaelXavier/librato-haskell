@@ -8,6 +8,7 @@ import Data.Default
 import Debug.Trace (traceShow)
 import Network.Librato
 
+import Control.Rematch (equalTo)
 import Network.HTTPMock
 import Network.HTTPMock.Expectations
 import Test.Hspec
@@ -24,24 +25,16 @@ spec = do
                                              , ("name", Just "foo")]
   describe "GetAllMetrics" $ do
     it "request the correct path" $
-      ("GET", "/v1/metrics") `shouldBeRequestedOnceBy`
-          (fst <$> getFromNoMetricsMocker)
+      matchResultingMocker noMetricsMocker getAllMetrics' $
+        allRequestsMatch [("GET", "/v1/metrics")]
     it "requests with HTTP basic authentication" $
-      ("Authorization", encodedAuth) `shouldMakeRequestWithHeader`
-          (fst <$> getFromNoMetricsMocker)
+      matchResultingMocker noMetricsMocker getAllMetrics' $
+        hasRequestWithHeader ("Authorization", encodedAuth)
 
     describe "unauthorized request" $ do
       it "returns an UnauthorizedError" $
-        (snd <$> getFromUnauthorizedMocker) `shouldReturn`
-          Left UnauthorizedError
-
---FIXME: garbage
-
-getFromNoMetricsMocker :: IO (HTTPMocker, LibratoResponse [Metric])
-getFromNoMetricsMocker = runWithMocker_ noMetricsMocker $ getAllMetrics'
-
-getFromUnauthorizedMocker :: IO (HTTPMocker, LibratoResponse [Metric])
-getFromUnauthorizedMocker = runWithMocker_ unauthorizedMocker $ getAllMetrics'
+        matchResultFromMocker unauthorizedMocker getAllMetrics' $
+          equalTo $ Left UnauthorizedError
 
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
@@ -72,7 +65,6 @@ fullMetricsSearch = def & metricsNamed .~ (Just "foo")
 
 tag1 :: Tag
 tag1 = Tag "tagone"
-
 
 tag2 :: Tag
 tag2 = Tag "tagtwo"

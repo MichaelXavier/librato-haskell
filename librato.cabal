@@ -49,6 +49,7 @@ test-suite spec
                        http-types         == 0.*,
                        http-streams   >= 0.4 && <= 1.0,
                        io-streams         == 1.*,
+                       rematch            == 0.*,
                        string-qq,
                        transformers,
                        unordered-containers
