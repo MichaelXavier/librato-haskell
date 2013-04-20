@@ -73,14 +73,14 @@ spec = do
                    object [
                      "name"         .= String "app_requests"
                    , "period"       .= N.I 60
-                   , "description"  .= String "HTTP requests serviced by the app per minute"
+                   , "description"  .= String "HTTP requests serviced by the app per-minute"
                    , "display_name" .= String "app_requests"
                    , "source"       .= String "app1"
                    ],
                    object [
                      "name"         .= String "moar_app_requests"
                    , "period"       .= N.I 60
-                   , "description"  .= String "HTTP requests serviced by the app per minute"
+                   , "description"  .= String "HTTP requests serviced by the app per-minute"
                    , "display_name" .= String "app_requests"
                    , "source"       .= String "app1"
                    ]

@@ -31,7 +31,7 @@ module Network.Librato.Types ( LibratoM
                              , HasPaginationOptions(..)) where
 
 import ClassyPrelude
-import Control.Lens
+import Control.Lens hiding ((.=))
 import Control.Lens.TH
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Aeson ( FromJSON(..)
@@ -39,7 +39,9 @@ import Data.Aeson ( FromJSON(..)
                   , Object
                   , Value(..)
                   , ToJSON(..)
+                  , object
                   , (.:?)
+                  , (.=)
                   , (.:))
 import Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as H
@@ -111,6 +113,13 @@ instance FromJSON Metric where
                                  <*> obj .: "description"
                                  <*> obj .: "display_name"
                                  <*> obj .:? "source"
+
+instance ToJSON Metric where
+  toJSON m = object [ "name"         .= (m ^. metricName)
+                    , "period"       .= (m ^. metricPeriod)
+                    , "description"  .= (m ^. metricDescription)
+                    , "display_name" .= (m ^. metricDisplayName)
+                    , "source"       .= (m ^. metricSource) ]
 
 type LibratoResponse a = Either ErrorDetail a
 
@@ -213,5 +222,15 @@ newtype Metrics = Metrics { _unMetrics :: [Metric] }
 
 makeClassy ''Metrics
 
-instance ToJSON Metrics
-  where toJSON = undefined
+instance ToJSON Metrics where
+  toJSON ms = object $ gaugesObj ++ countersObj
+    where gaugesObj
+            | not $ null gauges = ["gauges" .= gauges]
+            | otherwise         = [] --TODO
+          countersObj
+            | not $ null counters = ["counters" .= counters]
+            | otherwise           = [] --TODO
+          (gauges, counters) = partition isGauge $ ms ^. unMetrics
+          isGauge Gauge {} = True
+          isGauge _        = False
+    
