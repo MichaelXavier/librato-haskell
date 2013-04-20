@@ -17,6 +17,7 @@ library
                        Network.Librato.Types
   -- other-modules:       
   build-depends:       base           == 4.6.*,
+                       blaze-builder  == 0.*,
                        aeson          == 0.*,
                        bytestring,
                        data-default,
@@ -37,6 +38,7 @@ test-suite spec
   main-is:        Spec.hs
   hs-source-dirs: test,src
   build-depends:       base               == 4.6.*,
+                       blaze-builder      == 0.*,
                        aeson              == 0.*,
                        attoparsec         == 0.*,
                        bytestring,

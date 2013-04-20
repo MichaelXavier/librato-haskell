@@ -11,6 +11,7 @@ module Network.Librato ( getMetrics
                        , runLibratoM
                        , module Network.Librato.Types) where
 
+import Blaze.ByteString.Builder (Builder)
 import ClassyPrelude
 import Control.Exception (throw)
 import Control.Lens
@@ -20,6 +21,7 @@ import Data.Default
 import Data.Ix (inRange)
 import Data.Aeson ( FromJSON
                   , fromJSON
+                  , ToJSON
                   , Result(..)
                   , json)
 import Debug.Trace (traceShow)
@@ -70,7 +72,8 @@ createMetric :: Metric -> LibratoM IO (LibratoResponse ())
 createMetric = createMetrics . singleton
 
 createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
-createMetrics = undefined
+createMetrics = postJSON_ . Metrics
+
 --
 --deleteMetrics = undefined
 --
@@ -151,15 +154,32 @@ getRequest :: ( QueryLike params
               -> ByteString
               -> params
               -> IO (LibratoResponse resp)
-getRequest conf path params = runWithConf
-  where runWithConf = do
-          liftIO $ withLibratoConnection conf $ \conn -> do
-            req <- reqFromConf conf path' GET
-            sendRequest conn req emptyBody
-            receiveResponse conn responseHandler
-        path'            = path ++ renderQuery includeQuestion query
+getRequest conf path params = executeRequest emptyBody GET conf path'
+  where path'            = path ++ renderQuery includeQuestion query
         includeQuestion  = True
         query            = toQuery params
+
+postJSON_ :: ToJSON a => a -> LibratoM IO (LibratoResponse ())
+postJSON_ = sendJSONBody_ POST
+
+putJSON_ :: ToJSON a => a -> LibratoM IO (LibratoResponse ())
+putJSON_ = sendJSONBody_ PUT
+
+sendJSONBody_ :: ToJSON a => Method -> a -> LibratoM IO (LibratoResponse ())
+sendJSONBody_ = undefined
+
+executeRequest :: (FromJSON resp)
+                  => (S.OutputStream Builder -> IO ())
+                  -> Method
+                  -> ClientConfiguration
+                  -> ByteString
+                  -> IO (LibratoResponse resp)
+executeRequest requestBodyStream meth conf path = do
+  liftIO $ withLibratoConnection conf $ \conn -> do
+    req <- reqFromConf conf path meth
+    sendRequest conn req requestBodyStream
+    receiveResponse conn responseHandler
+
 
 withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a
 withLibratoConnection conf action = withConnection establishConnection action
