@@ -36,6 +36,18 @@ spec = do
         matchResultFromMocker unauthorizedMocker getAllMetrics' $
           equalTo $ Left UnauthorizedError
 
+  describe "createMetrics" $ do
+    it "requests the correct path" $
+      matchResultingMocker createMetricsMocker createMetrics' $
+        allRequestsMatch [("POST", "/v1/metrics")]
+
+    it "returns ()" $
+      matchResultFromMocker createMetricsMocker createMetrics' $
+        equalTo $ Right ()
+
+    describe "validation error returned" $ do
+      it "returns the appropriate type" $ pendingWith "decide type"
+
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse = (matcher, AlwaysReturns response)
@@ -48,7 +60,17 @@ unauthorizedMocker = def & responder . fakedInteractions <>~ [emptyResponse]
         matcher       = matchPathAndMethod "/v1/metrics" "GET"
         response      = FakeResponse status401 "{}" []
 
+createMetricsMocker :: HTTPMocker
+createMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse = (matcher, AlwaysReturns response)
+        matcher       = matchPathAndMethod "/v1/metrics" "POST"
+        response      = FakeResponse status200 "" []
+
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
+
+createMetrics' = runLibratoM testingConfig $ createMetrics [gauge, counter]
+  where gauge   = Gauge "gauge_name" 20 "gauge description" "Example Gauge" (Just "app1")
+        counter = Counter "counter_name" 20 "counter description" "Example Gauge" (Just "app1")
 
 testingConfig = ClientConfiguration "127.0.0.1" 4568 "/v1" "librato test" False username token
 

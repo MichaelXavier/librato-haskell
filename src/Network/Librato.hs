@@ -6,6 +6,8 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 module Network.Librato ( getMetrics
                        , getAllMetrics
+                       , createMetric
+                       , createMetrics
                        , runLibratoM
                        , module Network.Librato.Types) where
 
@@ -63,9 +65,12 @@ getMetrics = getRequestStreaming "/metrics"
 --
 --getMetric :: MetricLookup -> LibratoM (LibratoResponse (Maybe Metric))
 --getMetric = undefined
---
---createMetric :: Metric -> LibratoM (LibratoResponse ())
---createMetric = undefined
+
+createMetric :: Metric -> LibratoM IO (LibratoResponse ())
+createMetric = createMetrics . singleton
+
+createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
+createMetrics = undefined
 --
 --deleteMetrics = undefined
 --
