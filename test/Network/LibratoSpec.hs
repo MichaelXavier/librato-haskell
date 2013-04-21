@@ -45,8 +45,13 @@ spec = do
       matchResultFromMocker createMetricsMocker createMetrics' $
         equalTo $ Right ()
 
+    it "posts correct data" $
+      pendingWith "need body matchers from HTTPMock"
+        
+
     describe "validation error returned" $ do
-      it "returns the appropriate type" $ pendingWith "decide type"
+      it "returns the appropriate type" $
+        pendingWith "decide type"
 
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]

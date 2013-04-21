@@ -21,19 +21,21 @@ import Data.Default
 import Data.Ix (inRange)
 import Data.Aeson ( FromJSON
                   , fromJSON
-                  , ToJSON
+                  , ToJSON(..)
                   , Result(..)
+                  , encode
                   , json)
 import Debug.Trace (traceShow)
 import OpenSSL (withOpenSSL)
 import Network.Http.Client ( sendRequest
-                           , emptyBody
+                           --, emptyBody
                            , receiveResponse
                            , buildRequest
                            , Response
                            , RequestBuilder
                            , Method(..)
                            , Connection
+                           , inputStreamBody
                            , Request
                            , withConnection
                            , getStatusCode
@@ -59,7 +61,7 @@ getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse 
 getAllMetrics = consumeStreamingCall . getMetrics
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
-getMetrics = getRequestStreaming "/metrics"
+getMetrics = getJSONRequestStreaming "/metrics"
 
 --
 ---- TODO: flesh out
@@ -72,7 +74,7 @@ createMetric :: Metric -> LibratoM IO (LibratoResponse ())
 createMetric = createMetrics . singleton
 
 createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
-createMetrics = postJSON_ . Metrics
+createMetrics = postJSON_ "/metrics" . Metrics
 
 --
 --deleteMetrics = undefined
@@ -99,14 +101,15 @@ consumeStreamingCall req = withErrorHandling consume
         handleError ed = return $ Left ed
         catch' = flip catch
 
-getRequestStreaming :: ( QueryLike query
-                       , FromJSON (PaginatedResponse a))
-                       => ByteString
-                       -> PaginatedRequest query
-                       -> LibratoM IO (S.InputStream a)
-getRequestStreaming path params = do conf <- R.ask 
-                                     let gen = pageGenerator conf path params
-                                     liftIO $ S.fromGenerator gen
+getJSONRequestStreaming :: ( QueryLike query
+                           , FromJSON (PaginatedResponse a))
+                           => ByteString
+                           -> PaginatedRequest query
+                           -> LibratoM IO (S.InputStream a)
+getJSONRequestStreaming path params = do
+  conf <- R.ask 
+  let gen = pageGenerator conf path params
+  liftIO $ S.fromGenerator gen
 
 --TODO: eitherT
 pageGenerator :: ( QueryLike query
@@ -139,47 +142,70 @@ getPaginatedPage :: ( QueryLike query
                     => ClientConfiguration
                     -> ByteString
                     -> query
-                    -- -> m (LibratoResponse (PaginatedResponse a))
                     -> IO (LibratoResponse (PaginatedResponse a))
-getPaginatedPage = getRequest
+getPaginatedPage = getJSONRequest
 
 
 setUserAgent :: ByteString -> RequestBuilder ()
 setUserAgent = setHeader "User-Agent"
 
 --TODO: steal redirect following logic from "get" convenience function
-getRequest :: ( QueryLike params
+getJSONRequest :: ( QueryLike params
               , FromJSON resp)
               => ClientConfiguration
               -> ByteString
               -> params
               -> IO (LibratoResponse resp)
-getRequest conf path params = executeRequest emptyBody GET conf path'
+getJSONRequest conf path params = do input <- noBody
+                                     executeRequest input GET conf path'
   where path'            = path ++ renderQuery includeQuestion query
         includeQuestion  = True
         query            = toQuery params
 
-postJSON_ :: ToJSON a => a -> LibratoM IO (LibratoResponse ())
+postJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
 postJSON_ = sendJSONBody_ POST
 
-putJSON_ :: ToJSON a => a -> LibratoM IO (LibratoResponse ())
+putJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
 putJSON_ = sendJSONBody_ PUT
 
-sendJSONBody_ :: ToJSON a => Method -> a -> LibratoM IO (LibratoResponse ())
-sendJSONBody_ = undefined
+sendJSONBody_ :: ToJSON a => Method -> ByteString -> a -> LibratoM IO (LibratoResponse ())
+sendJSONBody_ meth path payload = do 
+  conf          <- R.ask
+  liftIO $ do payloadStream <- jsonToInputStream payload
+              executeRequest_ payloadStream meth conf path
 
 executeRequest :: (FromJSON resp)
-                  => (S.OutputStream Builder -> IO ())
+                  => (S.InputStream ByteString)
                   -> Method
                   -> ClientConfiguration
                   -> ByteString
                   -> IO (LibratoResponse resp)
-executeRequest requestBodyStream meth conf path = do
+executeRequest = executeRequestWithHandler jsonResponseHandler
+
+executeRequest_ :: (S.InputStream ByteString)
+                   -> Method
+                   -> ClientConfiguration
+                   -> ByteString
+                   -> IO (LibratoResponse ())
+executeRequest_ = executeRequestWithHandler emptyResponseHandler
+
+executeRequestWithHandler :: (Response -> S.InputStream ByteString -> IO (LibratoResponse a))
+                             -> S.InputStream ByteString
+                             -> Method
+                             -> ClientConfiguration
+                             -> ByteString
+                             -> IO (LibratoResponse a)
+executeRequestWithHandler handler requestBodyStream meth conf path = do
   liftIO $ withLibratoConnection conf $ \conn -> do
     req <- reqFromConf conf path meth
-    sendRequest conn req requestBodyStream
-    receiveResponse conn responseHandler
+    sendRequest conn req (inputStreamBody requestBodyStream)
+    receiveResponse conn handler
 
+jsonToInputStream :: ToJSON a => a -> IO (S.InputStream ByteString)
+jsonToInputStream = S.fromLazyByteString . encode . toJSON
+
+noBody :: IO (S.InputStream ByteString)
+noBody = S.nullInput
 
 withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a
 withLibratoConnection conf action = withConnection establishConnection action
@@ -205,29 +231,47 @@ reqFromConf conf path meth = buildRequest $ do
         token    = conf ^. apiToken
         ua       = conf ^. apiUserAgent
 
-responseHandler :: (FromJSON parsed)
-                   => Response
+
+jsonResponseHandler :: (FromJSON resp)
+                       => Response
+                       -> S.InputStream ByteString
+                       -> IO (LibratoResponse resp)
+jsonResponseHandler = responseHandler handleJSONBody
+  where handleJSONBody :: FromJSON resp => S.InputStream ByteString -> IO (LibratoResponse resp)
+        handleJSONBody stream = do parsed <- parseJSONBody stream
+                                   return $ coerceParsed parsed
+
+-- will const come and bite me in the ass? maybe `seq` ()
+emptyResponseHandler = responseHandler (const . return . Right $ ())
+
+-- I shoudln't have to specify the FromJSON
+responseHandler :: (FromJSON a)
+                   => (S.InputStream ByteString -> IO (LibratoResponse a))
+                   -> Response
                    -> S.InputStream ByteString
-                   -> IO (LibratoResponse parsed)
-responseHandler resp stream
-  | responseOk   = do parsed <- parseBody
-                      return $ coerceParsed parsed
+                   -> IO (LibratoResponse a)
+responseHandler bodyHandler resp stream
+  | responseOk    = bodyHandler stream -- do we need IO here?
   | unauthorized  = returnError UnauthorizedError
   | alreadyExists = returnError UnauthorizedError
   | maintenance   = returnError MaintenanceError
-  | otherwise     = do parsed <- parseBody
-                       case parsed of
-                         Success err -> return $ Left OtherError --TODO
-                         Error e     -> return $ Left $ ParseError $ pack e
+  | otherwise = undefined
+  -- | otherwise     = do parsed <- parseJSONBody stream
+  --                      case parsed of
+  --                        Success err -> returnError OtherError --TODO
+  --                        Error e     -> returnError $ ParseError $ pack e
   where responseOk    = inRange (200, 299) $ getStatusCode resp
         unauthorized  = 401 == getStatusCode resp
         alreadyExists = 422 == getStatusCode resp
         maintenance   = 503 == getStatusCode resp
-        parseBody     = parseFromStream parser stream
-        parser        = fmap fromJSON json
         returnError   = return . Left
         --TODO: catch goddamn ParseExceptions, make this less horrible
 
 coerceParsed :: Result a -> LibratoResponse a
 coerceParsed (Success a) = Right a
 coerceParsed (Error e)   = Left $ ParseError $ pack e
+
+--TODO: pointfree, typesig
+parseJSONBody :: FromJSON a => S.InputStream ByteString -> IO (Result a)
+parseJSONBody stream = parseFromStream parser stream
+  where parser = fmap fromJSON json
