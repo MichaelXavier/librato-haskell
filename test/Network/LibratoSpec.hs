@@ -45,8 +45,10 @@ spec = do
       matchResultFromMocker createMetricsMocker createMetrics' $
         equalTo $ Right ()
 
+    --TODO: JSON matcher?
     it "posts correct data" $
-      pendingWith "need body matchers from HTTPMock"
+      matchResultingMocker createMetricsMocker createMetrics' $
+        hasRequestWithBody "{\"gauges\":[{\"display_name\":\"Example Gauge\",\"name\":\"gauge_name\",\"period\":20,\"description\":\"gauge description\",\"source\":\"app1\"}],\"counters\":[{\"display_name\":\"Example Gauge\",\"name\":\"counter_name\",\"period\":20,\"description\":\"counter description\",\"source\":\"app1\"}]}"
         
 
     describe "validation error returned" $ do

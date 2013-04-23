@@ -28,7 +28,6 @@ import Data.Aeson ( FromJSON
 import Debug.Trace (traceShow)
 import OpenSSL (withOpenSSL)
 import Network.Http.Client ( sendRequest
-                           --, emptyBody
                            , receiveResponse
                            , buildRequest
                            , Response
