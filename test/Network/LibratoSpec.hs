@@ -49,7 +49,6 @@ spec = do
     it "posts correct data" $
       matchResultingMocker createMetricsMocker createMetrics' $
         hasRequestWithBody "{\"gauges\":[{\"display_name\":\"Example Gauge\",\"name\":\"gauge_name\",\"period\":20,\"description\":\"gauge description\",\"source\":\"app1\"}],\"counters\":[{\"display_name\":\"Example Gauge\",\"name\":\"counter_name\",\"period\":20,\"description\":\"counter description\",\"source\":\"app1\"}]}"
-        
 
     describe "validation error returned" $ do
       it "returns the appropriate type" $
