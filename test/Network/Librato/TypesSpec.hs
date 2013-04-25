@@ -95,6 +95,14 @@ spec = do
                                           , ("summarize_time",    Just "false")
                                           , ("summarize_sources", Just "true")
                                           ]
+  -- measurement json doesn't inherently have source. and sometimes it changes (e.g. "ALL")
+  describe "FromJSON Measurement" $ do
+    it "parses the JSON correctly" $
+      measurementString `shouldParseJSON` parsedMeasurement
+
+  describe "FromJSON MetricSummarization" $ do
+    it "parses the JSON correctly" $
+      metricSummarizationString `shouldParseJSON` parsedMetricSummarization
 
 fullMetricLookup :: MetricLookup
 fullMetricLookup = MetricLookup "unimportant"
@@ -115,6 +123,79 @@ paramsErrorString = [s|
       "name":["is not present"],
       "start_time":["is not a number"]
     }
+  }
+}
+|]
+
+parsedMetricSummarization :: MetricSummarization
+parsedMetricSummarization = MetricSummarization {
+  _summarizationMetric = Gauge {
+    _metricName        = "cpu_temp"
+  , _metricDisplayName = "cpu_temp"
+  , _metricDescription = "Current CPU temperature in Fahrenheit"
+  , _metricPeriod      = 60
+  , _metricSource      = Nothing
+  }
+, _summarizationMeasurements = [] --TODO
+}
+
+measurementString :: LBS.ByteString
+measurementString = [s|
+  {
+    "measure_time": 1234567890,
+    "value": 84.5,
+    "count": 1
+  }
+|]
+
+parsedMeasurement :: Measurement
+parsedMeasurement = Measurement {
+  _measurementTime  = 1234567890
+, _measurementValue = 84.5
+, _measurementCount = 1
+}
+
+metricSummarizationString :: LBS.ByteString
+metricSummarizationString = [s|
+{
+  "resolution": 60,
+  "measurements": {
+    "server1.acme.com": [
+      {
+        "measure_time": 1234567890,
+        "value": 84.5,
+        "count": 1
+      },
+      {
+        "measure_time": 1234567950,
+        "value": 86.7,
+        "count": 1
+      },
+      {
+        "measure_time": 1234568010,
+        "value": 84.6,
+        "count": 1
+      },
+      {
+        "measure_time": 1234568070,
+        "value": 89.7,
+        "count": 1
+      }
+    ]
+  },
+  "name": "cpu_temp",
+  "display_name": "cpu_temp",
+  "description": "Current CPU temperature in Fahrenheit",
+  "period": 60,
+  "type": "gauge",
+  "attributes": {
+    "created_by_ua": "librato-metrics/0.7.4 (ruby; 1.9.3p194; x86_64-linux) direct-faraday/0.8.4",
+    "display_max": null,
+    "display_min": 0,
+    "display_stacked": true,
+    "display_transform": null,
+    "display_units_long": "Fahrenheit",
+    "display_units_short": "&#176;F"
   }
 }
 |]

@@ -31,6 +31,7 @@ library
                        http-types,
                        http-streams   >= 0.4 && <= 1.0,
                        transformers,
+                       time           == 1.*,
                        unordered-containers
 
 test-suite spec
@@ -55,4 +56,5 @@ test-suite spec
                        rematch            == 0.*,
                        string-qq,
                        transformers,
+                       time               == 1.*,
                        unordered-containers

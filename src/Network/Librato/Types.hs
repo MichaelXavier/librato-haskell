@@ -52,6 +52,7 @@ import Data.Aeson ( FromJSON(..)
 import Data.Aeson.Types (Parser)
 import qualified Data.HashMap.Strict as H
 import Data.Default
+import Data.Time.Clock.POSIX (POSIXTime(..))
 import Network.Http.Client ( Hostname
                            , Port)
 import Network.HTTP.Types (QueryLike(..))
@@ -91,10 +92,10 @@ makeClassy ''Tag
 
 --TODO: attributes
 data Metric = Counter { _metricName         :: Text
-                      , _metricPeriod       :: Integer -- TODO: attributes
+                      , _metricPeriod       :: Integer -- TODO: attributes?
                       , _metricDescription  :: Text
                       , _metricDisplayName  :: Text
-                      , _metricSource       :: Maybe Text } |
+                      , _metricSource       :: Maybe Text } | --am i conflating source with some other resource?
               Gauge   { _metricName         :: Text
                       , _metricPeriod       :: Integer
                       , _metricDescription  :: Text
@@ -270,13 +271,27 @@ instance ToJSON Metrics where
           isGauge Gauge {} = True
           isGauge _        = False
 
-data Measurement = Measurement deriving (Show, Eq) --TODO
+data Measurement = Measurement {
+  _measurementTime  :: POSIXTime --TODO: should I use UTCTime instead?
+, _measurementValue :: Double -- is double the correct type?
+, _measurementCount :: Int
+} deriving (Show, Eq) --TODO
 
 makeClassy ''Measurement
+
+instance FromJSON Measurement where
+  parseJSON = withObject "Measurement" parseMeasurement
+    where parseMeasurement o = Measurement <$> (toPOSIXTime <$> o .: "measure_time")
+                                           <*> o .: "value"
+                                           <*> o .: "count"
+          toPOSIXTime :: Integer -> POSIXTime
+          toPOSIXTime = fromIntegral
     
+--TODO: attributes
+--TOD: where does resolution come from?
 data MetricSummarization = MetricSummarization {
   _summarizationMetric       :: Metric
-, _summarizationMeasurements :: [Measurement]
+, _summarizationMeasurements :: [(Text, Measurement)] -- source seems like maybe it should have its own type
 } deriving (Show, Eq)
 
 makeClassy ''MetricSummarization
