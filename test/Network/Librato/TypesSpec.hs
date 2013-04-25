@@ -86,6 +86,22 @@ spec = do
                    ]
                  ]
                ]
+
+  describe "QueryLike MetricLookup" $ do
+    it "renders the correct params" $
+      toQuery fullMetricLookup `shouldBe` [ ("sources[]",         Just "source1")
+                                          , ("sources[]",         Just "source2")
+                                          , ("source_tag",        Just "st")
+                                          , ("summarize_time",    Just "false")
+                                          , ("summarize_sources", Just "true")
+                                          ]
+
+fullMetricLookup :: MetricLookup
+fullMetricLookup = MetricLookup "unimportant"
+                                ["source1", "source2"]
+                                (Just "st")
+                                False
+                                True
       
 
 defaultPagination :: PaginationOptions

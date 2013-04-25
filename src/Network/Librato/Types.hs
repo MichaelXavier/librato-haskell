@@ -13,6 +13,8 @@ module Network.Librato.Types ( LibratoM
                              , HasMetric(..)
                              , Metrics(..)
                              , HasMetrics(..)
+                             , MetricLookup(..)
+                             , HasMetricLookup(..)
                              , ClientConfiguration(..)
                              , HasClientConfiguration(..)
                              , defaultConfiguration
@@ -28,7 +30,11 @@ module Network.Librato.Types ( LibratoM
                              , HasPaginatedRequest(..)
                              , MetricsSearch(..)
                              , HasMetricsSearch(..)
-                             , HasPaginationOptions(..)) where
+                             , HasPaginationOptions(..)
+                             , MetricSummarization(..)
+                             , HasMetricSummarization(..)
+                             , Measurement(..)
+                             , HasMeasurement(..)) where
 
 import ClassyPrelude
 import Control.Lens hiding ((.=))
@@ -189,8 +195,8 @@ parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
                                               <*> obj .: payloadKey
 
 data PaginatedRequest a = PaginatedRequest {
-    _requestPagination :: PaginationOptions
-  , _requestQuery      :: a
+  _requestPagination :: PaginationOptions
+, _requestQuery      :: a
 } deriving (Show, Eq)
 
 makeClassy ''PaginatedRequest
@@ -203,8 +209,38 @@ instance QueryLike a => QueryLike (PaginatedRequest a) where
 instance Default a => Default (PaginatedRequest a) where
   def = PaginatedRequest def def
 
-data MetricsSearch = MetricsSearch { _metricsNamed            :: Maybe Text -- case insensitive
-                                   , _metricsSearchTags       :: [Tag] } deriving (Show, Eq)
+--TODO: time interval stuff
+data MetricLookup = MetricLookup {
+  _metricLookupName             :: Text
+, _metricLookupSources          :: [Text]
+, _metricLookupSourceTag        :: Maybe Text
+, _metricLookupSummarizeTime    :: Bool
+, _metricLookupSummarizeSources :: Bool
+} deriving (Show, Eq)
+
+makeClassy ''MetricLookup
+
+-- is it a bad idea when there's no sensible name?
+instance Default MetricLookup where
+  def = MetricLookup empty empty def False False
+
+instance QueryLike MetricLookup where
+  toQuery ml = sourcesQuery ++ [ ("source_tag",        encodeUtf8 <$> st)
+                               , ("summarize_time",    Just sumTime)
+                               , ("summarize_sources", Just sumSrc)
+                               ]
+    where st           = ml ^. metricLookupSourceTag
+          sumTime      = b2s $ ml ^. metricLookupSummarizeTime
+          sumSrc       = b2s $ ml ^. metricLookupSummarizeSources
+          b2s True     = "true"
+          b2s False    = "false"
+          sourcesQuery = map (("sources[]",) . Just . encodeUtf8) sources
+          sources      = ml ^. metricLookupSources
+
+data MetricsSearch = MetricsSearch {
+  _metricsNamed            :: Maybe Text -- case insensitive
+, _metricsSearchTags       :: [Tag]
+} deriving (Show, Eq)
 
 makeClassy ''MetricsSearch
 
@@ -233,4 +269,17 @@ instance ToJSON Metrics where
           (gauges, counters) = partition isGauge $ ms ^. unMetrics
           isGauge Gauge {} = True
           isGauge _        = False
+
+data Measurement = Measurement deriving (Show, Eq) --TODO
+
+makeClassy ''Measurement
     
+data MetricSummarization = MetricSummarization {
+  _summarizationMetric       :: Metric
+, _summarizationMeasurements :: [Measurement]
+} deriving (Show, Eq)
+
+makeClassy ''MetricSummarization
+
+instance FromJSON MetricSummarization where
+  parseJSON = undefined

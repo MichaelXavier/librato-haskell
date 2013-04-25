@@ -54,6 +54,11 @@ spec = do
       it "returns the appropriate type" $
         pendingWith "decide type"
 
+  describe "getMetric" $ do
+    it "uses the name in the path" $
+      matchResultingMocker foundMetricMocker getMetric' $
+        allRequestsMatch [("GET", "/v1/metrics/somemetric")]
+
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse = (matcher, AlwaysReturns response)
@@ -72,7 +77,21 @@ createMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
         matcher       = matchPathAndMethod "/v1/metrics" "POST"
         response      = FakeResponse status200 "" []
 
+foundMetricMocker :: HTTPMocker
+foundMetricMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse  = (matcher, AlwaysReturns response)
+        matcher        = matchPathAndMethod "/v1/metrics/somemetric" "GET"
+        response       = FakeResponse status200 renderedMetric []
+        renderedMetric = "{}" --TODO
+
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
+
+getMetric' = runLibratoM testingConfig $ getMetric metricLookup 
+  where metricLookup = MetricLookup "somemetric"
+                                    ["source1", "source2"]
+                                    (Just "sometag")
+                                    False
+                                    False
 
 createMetrics' = runLibratoM testingConfig $ createMetrics [gauge, counter]
   where gauge   = Gauge "gauge_name" 20 "gauge description" "Example Gauge" (Just "app1")

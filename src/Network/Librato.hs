@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 module Network.Librato ( getMetrics
                        , getAllMetrics
+                       , getMetric
                        , createMetric
                        , createMetrics
                        , runLibratoM
@@ -55,19 +56,17 @@ import Network.Librato.Types
 
 ---- Metrics
 
---TODO: monadic composition
 getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse [Metric])
 getAllMetrics = consumeStreamingCall . getMetrics
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
 getMetrics = getJSONRequestStreaming "/metrics"
 
---
----- TODO: flesh out
---data MetricLookup = MetricLookup deriving (Show, Eq)
---
---getMetric :: MetricLookup -> LibratoM (LibratoResponse (Maybe Metric))
---getMetric = undefined
+getMetric :: MetricLookup -> LibratoM IO (LibratoResponse (Maybe MetricSummarization))
+getMetric params = do conf <- R.ask
+                      liftIO $ getJSONRequest conf path params
+  where path = "/metrics/" ++ encodeUtf8 name
+        name = params ^. metricLookupName
 
 createMetric :: Metric -> LibratoM IO (LibratoResponse ())
 createMetric = createMetrics . singleton
@@ -150,7 +149,7 @@ setUserAgent = setHeader "User-Agent"
 
 --TODO: steal redirect following logic from "get" convenience function
 getJSONRequest :: ( QueryLike params
-              , FromJSON resp)
+                  , FromJSON resp)
               => ClientConfiguration
               -> ByteString
               -> params
