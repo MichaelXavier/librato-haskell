@@ -286,15 +286,19 @@ instance FromJSON Measurement where
                                            <*> o .: "count"
           toPOSIXTime :: Integer -> POSIXTime
           toPOSIXTime = fromIntegral
-    
+
 --TODO: attributes
---TOD: where does resolution come from?
+--TODO: where does resolution come from?
+--TODO: should measurements be a HashMap?
 data MetricSummarization = MetricSummarization {
   _summarizationMetric       :: Metric
-, _summarizationMeasurements :: [(Text, Measurement)] -- source seems like maybe it should have its own type
+, _summarizationMeasurements :: [(Text, [Measurement])] -- source seems like maybe it should have its own type
 } deriving (Show, Eq)
 
 makeClassy ''MetricSummarization
 
 instance FromJSON MetricSummarization where
-  parseJSON = undefined
+  parseJSON = withObject "MetricSummarization" parseSummarization
+    where parseSummarization o = MetricSummarization <$> parseJSON (Object o)
+                                                     <*> (H.toList <$> o .: "measurements")
+

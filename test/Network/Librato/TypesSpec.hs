@@ -127,18 +127,6 @@ paramsErrorString = [s|
 }
 |]
 
-parsedMetricSummarization :: MetricSummarization
-parsedMetricSummarization = MetricSummarization {
-  _summarizationMetric = Gauge {
-    _metricName        = "cpu_temp"
-  , _metricDisplayName = "cpu_temp"
-  , _metricDescription = "Current CPU temperature in Fahrenheit"
-  , _metricPeriod      = 60
-  , _metricSource      = Nothing
-  }
-, _summarizationMeasurements = [] --TODO
-}
-
 measurementString :: LBS.ByteString
 measurementString = [s|
   {
@@ -170,7 +158,9 @@ metricSummarizationString = [s|
         "measure_time": 1234567950,
         "value": 86.7,
         "count": 1
-      },
+      }
+    ],
+    "server2.acme.com": [
       {
         "measure_time": 1234568010,
         "value": 84.6,
@@ -199,6 +189,24 @@ metricSummarizationString = [s|
   }
 }
 |]
+
+parsedMetricSummarization :: MetricSummarization
+parsedMetricSummarization = MetricSummarization {
+  _summarizationMetric = Gauge {
+    _metricName        = "cpu_temp"
+  , _metricDisplayName = "cpu_temp"
+  , _metricDescription = "Current CPU temperature in Fahrenheit"
+  , _metricPeriod      = 60
+  , _metricSource      = Nothing
+  }
+, _summarizationMeasurements = [
+  ("server1.acme.com", [ Measurement 1234567890 84.5 1
+                       , Measurement 1234567950 86.7 1 ])
+, ("server2.acme.com", [ Measurement 1234568010 84.6 1
+                       , Measurement 1234568070 89.7 1 ])
+]
+}
+
 
 paramsError :: ErrorDetail
 paramsError = ParamsError [("name", ["is not present"]), ("start_time", ["is not a number"])]
