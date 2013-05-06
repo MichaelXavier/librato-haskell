@@ -51,13 +51,22 @@ spec = do
         hasRequestWithBody "{\"gauges\":[{\"display_name\":\"Example Gauge\",\"name\":\"gauge_name\",\"period\":20,\"description\":\"gauge description\",\"source\":\"app1\"}],\"counters\":[{\"display_name\":\"Example Gauge\",\"name\":\"counter_name\",\"period\":20,\"description\":\"counter description\",\"source\":\"app1\"}]}"
 
     describe "validation error returned" $ do
-      it "returns the appropriate type" $
+      it "returns the appropriate error type" $
         pendingWith "decide type"
 
   describe "getMetric" $ do
     it "uses the name in the path" $
       matchResultingMocker foundMetricMocker getMetric' $
         allRequestsMatch [("GET", "/v1/metrics/somemetric")]
+
+  describe "deleteMetric" $ do
+    it "makes a DELETE request to the correct path" $
+      matchResultingMocker deleteMetricMocker deleteMetric' $
+        allRequestsMatch [("DELETE", "/v1/metrics/somemetric")]
+
+    describe "404" $ do
+      it "returns the appropriate error type" $
+        pendingWith "decide type"
 
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
@@ -84,7 +93,15 @@ foundMetricMocker = def & responder . fakedInteractions <>~ [emptyResponse]
         response       = FakeResponse status200 renderedMetric []
         renderedMetric = "{}" --TODO
 
+deleteMetricMocker :: HTTPMocker
+deleteMetricMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse  = (matcher, AlwaysReturns response)
+        matcher        = matchPathAndMethod "/v1/metrics/somemetric" "DELETE"
+        response       = FakeResponse status204 "" []
+
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
+
+deleteMetric' = runLibratoM testingConfig $ deleteMetric "somemetric"
 
 getMetric' = runLibratoM testingConfig $ getMetric metricLookup 
   where metricLookup = MetricLookup "somemetric"

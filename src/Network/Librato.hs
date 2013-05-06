@@ -10,6 +10,7 @@ module Network.Librato ( getMetrics
                        , createMetric
                        , createMetrics
                        , runLibratoM
+                       , deleteMetric
                        , module Network.Librato.Types) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -26,7 +27,8 @@ import Data.Aeson ( FromJSON
                   , Result(..)
                   , encode
                   , json)
-import Debug.Trace (traceShow)
+import Debug.Trace ( traceShow
+                   , traceIO)
 import OpenSSL (withOpenSSL)
 import Network.Http.Client ( sendRequest
                            , receiveResponse
@@ -74,11 +76,12 @@ createMetric = createMetrics . singleton
 createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
 createMetrics = postJSON_ "/metrics" . Metrics
 
---
 --deleteMetrics = undefined
 --
---deleteMetric :: MetricName -> LibratoM (LibratoResponse ())
---deleteMetric = undefined
+--TODO: probably newtype name?
+deleteMetric :: Text -> LibratoM IO (LibratoResponse ())
+deleteMetric = delete_ . buildPath
+  where buildPath = ("/metrics/" ++) . encodeUtf8
 --
 --updateMetric :: Metric -> LibratoM (LibratoResponse ())
 --updateMetric = undefined
@@ -105,7 +108,7 @@ getJSONRequestStreaming :: ( QueryLike query
                            -> PaginatedRequest query
                            -> LibratoM IO (S.InputStream a)
 getJSONRequestStreaming path params = do
-  conf <- R.ask 
+  conf <- R.ask
   let gen = pageGenerator conf path params
   liftIO $ S.fromGenerator gen
 
@@ -166,6 +169,11 @@ postJSON_ = sendJSONBody_ POST
 putJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
 putJSON_ = sendJSONBody_ PUT
 
+delete_ :: ByteString -> LibratoM IO (LibratoResponse ())
+delete_ path = do input <- liftIO $ noBody
+                  conf  <- R.ask 
+                  liftIO $ executeRequest_ input DELETE conf path
+
 sendJSONBody_ :: ToJSON a => Method -> ByteString -> a -> LibratoM IO (LibratoResponse ())
 sendJSONBody_ meth path payload = do 
   conf          <- R.ask
@@ -178,24 +186,25 @@ executeRequest :: (FromJSON resp)
                   -> ClientConfiguration
                   -> ByteString
                   -> IO (LibratoResponse resp)
-executeRequest = executeRequestWithHandler jsonResponseHandler
+executeRequest = executeRequestWithHandler jsonResponseHandler False
 
 executeRequest_ :: (S.InputStream ByteString)
                    -> Method
                    -> ClientConfiguration
                    -> ByteString
                    -> IO (LibratoResponse ())
-executeRequest_ = executeRequestWithHandler emptyResponseHandler
+executeRequest_ = executeRequestWithHandler emptyResponseHandler True
 
 executeRequestWithHandler :: (Response -> S.InputStream ByteString -> IO (LibratoResponse a))
+                             -> Bool --HACK
                              -> S.InputStream ByteString
                              -> Method
                              -> ClientConfiguration
                              -> ByteString
                              -> IO (LibratoResponse a)
-executeRequestWithHandler handler requestBodyStream meth conf path = do
+executeRequestWithHandler handler closeConn requestBodyStream meth conf path = do
   liftIO $ withLibratoConnection conf $ \conn -> do
-    req <- reqFromConf conf path meth
+    req <- reqFromConf conf path meth closeConn
     sendRequest conn req (inputStreamBody requestBodyStream)
     receiveResponse conn handler
 
@@ -217,8 +226,8 @@ withLibratoConnection conf action = withConnection establishConnection action
                                                          openConnectionSSL ctx host port
 
 --TODO: EitherT
-reqFromConf :: ClientConfiguration -> ByteString -> Method -> IO Request
-reqFromConf conf path meth = buildRequest $ do
+reqFromConf :: ClientConfiguration -> ByteString -> Method -> Bool -> IO Request
+reqFromConf conf path meth closeConn = buildRequest $ do
   http meth fullPath
   setContentType "application/json"
   setAccept      "application/json"
@@ -240,6 +249,7 @@ jsonResponseHandler = responseHandler handleJSONBody
                                    return $ coerceParsed parsed
 
 -- will const come and bite me in the ass? maybe `seq` ()
+emptyResponseHandler :: Response -> S.InputStream ByteString -> IO (LibratoResponse ())
 emptyResponseHandler = responseHandler (const . return . Right $ ())
 
 -- I shoudln't have to specify the FromJSON
@@ -253,7 +263,7 @@ responseHandler bodyHandler resp stream
   | unauthorized  = returnError UnauthorizedError
   | alreadyExists = returnError UnauthorizedError
   | maintenance   = returnError MaintenanceError
-  | otherwise = undefined
+  | otherwise = undefined --TODO
   -- | otherwise     = do parsed <- parseJSONBody stream
   --                      case parsed of
   --                        Success err -> returnError OtherError --TODO
