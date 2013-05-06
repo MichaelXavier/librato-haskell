@@ -263,7 +263,8 @@ responseHandler bodyHandler resp stream
   | unauthorized  = returnError UnauthorizedError
   | alreadyExists = returnError UnauthorizedError
   | maintenance   = returnError MaintenanceError
-  | otherwise = undefined --TODO
+  | notFound      = returnError NotFoundError
+  | otherwise     = undefined --TODO
   -- | otherwise     = do parsed <- parseJSONBody stream
   --                      case parsed of
   --                        Success err -> returnError OtherError --TODO
@@ -272,6 +273,7 @@ responseHandler bodyHandler resp stream
         unauthorized  = 401 == getStatusCode resp
         alreadyExists = 422 == getStatusCode resp
         maintenance   = 503 == getStatusCode resp
+        notFound      = 404 == getStatusCode resp
         returnError   = return . Left
         --TODO: catch goddamn ParseExceptions, make this less horrible
 

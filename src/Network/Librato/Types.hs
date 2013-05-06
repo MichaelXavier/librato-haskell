@@ -134,6 +134,7 @@ data ErrorDetail = ParseError Text               |
                    ParamsError [(Text, [Text])]  |
                    RequestError [Text]           |
                    SystemError [Text]            |
+                   NotFoundError                 |
                    OtherError                    | -- TODO
                    AlreadyExistsError            |
                    MaintenanceError              |

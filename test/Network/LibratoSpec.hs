@@ -64,9 +64,14 @@ spec = do
       matchResultingMocker deleteMetricMocker deleteMetric' $
         allRequestsMatch [("DELETE", "/v1/metrics/somemetric")]
 
+    it "returns ()" $
+      matchResultFromMocker deleteMetricMocker deleteMetric' $
+        equalTo $ Right ()
+
     describe "404" $ do
       it "returns the appropriate error type" $
-        pendingWith "decide type"
+        matchResultFromMocker deleteMetricNotFoundMocker deleteMetric' $
+          equalTo $ Left NotFoundError
 
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
@@ -98,6 +103,12 @@ deleteMetricMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse  = (matcher, AlwaysReturns response)
         matcher        = matchPathAndMethod "/v1/metrics/somemetric" "DELETE"
         response       = FakeResponse status204 "" []
+
+deleteMetricNotFoundMocker :: HTTPMocker
+deleteMetricNotFoundMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse  = (matcher, AlwaysReturns response)
+        matcher        = matchPathAndMethod "/v1/metrics/somemetric" "DELETE"
+        response       = FakeResponse status404 "" []
 
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
