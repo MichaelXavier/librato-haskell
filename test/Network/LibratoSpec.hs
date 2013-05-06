@@ -73,6 +73,20 @@ spec = do
         matchResultFromMocker deleteMetricNotFoundMocker deleteMetric' $
           equalTo $ Left NotFoundError
 
+  describe "deleteMetrics" $ do
+    it "requests the correct path" $
+      matchResultingMocker deleteMetricsMocker deleteMetrics' $
+        allRequestsMatch [("DELETE", "/v1/metrics")]
+
+    it "returns ()" $
+      matchResultFromMocker deleteMetricsMocker deleteMetrics' $
+        equalTo $ Right ()
+
+    --TODO: JSON matcher?
+    it "posts correct data" $
+      matchResultingMocker deleteMetricsMocker deleteMetrics' $
+        hasRequestWithBody "{\"names\":[\"foo\",\"bar\"]}"
+
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse = (matcher, AlwaysReturns response)
@@ -104,6 +118,12 @@ deleteMetricMocker = def & responder . fakedInteractions <>~ [emptyResponse]
         matcher        = matchPathAndMethod "/v1/metrics/somemetric" "DELETE"
         response       = FakeResponse status204 "" []
 
+deleteMetricsMocker :: HTTPMocker
+deleteMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse  = (matcher, AlwaysReturns response)
+        matcher        = matchPathAndMethod "/v1/metrics" "DELETE"
+        response       = FakeResponse status204 "" []
+
 deleteMetricNotFoundMocker :: HTTPMocker
 deleteMetricNotFoundMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse  = (matcher, AlwaysReturns response)
@@ -113,6 +133,8 @@ deleteMetricNotFoundMocker = def & responder . fakedInteractions <>~ [emptyRespo
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
 deleteMetric' = runLibratoM testingConfig $ deleteMetric "somemetric"
+
+deleteMetrics' = runLibratoM testingConfig $ deleteMetrics ["foo", "bar"]
 
 getMetric' = runLibratoM testingConfig $ getMetric metricLookup 
   where metricLookup = MetricLookup "somemetric"

@@ -11,6 +11,7 @@ module Network.Librato ( getMetrics
                        , createMetrics
                        , runLibratoM
                        , deleteMetric
+                       , deleteMetrics
                        , module Network.Librato.Types) where
 
 import Blaze.ByteString.Builder (Builder)
@@ -76,7 +77,8 @@ createMetric = createMetrics . singleton
 createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
 createMetrics = postJSON_ "/metrics" . Metrics
 
---deleteMetrics = undefined
+deleteMetrics :: [Text] -> LibratoM IO (LibratoResponse ())
+deleteMetrics = deleteJSON_ "/metrics" . MetricNames
 --
 --TODO: probably newtype name?
 deleteMetric :: Text -> LibratoM IO (LibratoResponse ())
@@ -168,6 +170,9 @@ postJSON_ = sendJSONBody_ POST
 
 putJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
 putJSON_ = sendJSONBody_ PUT
+
+deleteJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
+deleteJSON_ = sendJSONBody_ DELETE
 
 delete_ :: ByteString -> LibratoM IO (LibratoResponse ())
 delete_ path = do input <- liftIO $ noBody

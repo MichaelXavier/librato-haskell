@@ -13,6 +13,8 @@ module Network.Librato.Types ( LibratoM
                              , HasMetric(..)
                              , Metrics(..)
                              , HasMetrics(..)
+                             , MetricNames(..)
+                             , HasMetricNames(..)
                              , MetricLookup(..)
                              , HasMetricLookup(..)
                              , ClientConfiguration(..)
@@ -303,3 +305,9 @@ instance FromJSON MetricSummarization where
     where parseSummarization o = MetricSummarization <$> parseJSON (Object o)
                                                      <*> (H.toList <$> o .: "measurements")
 
+newtype MetricNames = MetricNames { _unMetricNames :: [Text] }
+
+makeClassy ''MetricNames
+
+instance ToJSON MetricNames where
+  toJSON names = object ["names" .= (names ^. unMetricNames)]
