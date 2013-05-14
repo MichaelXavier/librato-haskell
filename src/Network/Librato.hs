@@ -84,14 +84,19 @@ deleteMetrics = deleteJSON_ "/metrics" . MetricNames
 deleteMetric :: Text -> LibratoM IO (LibratoResponse ())
 deleteMetric = delete_ . buildPath
   where buildPath = ("/metrics/" ++) . encodeUtf8
---
---updateMetric :: Metric -> LibratoM (LibratoResponse ())
---updateMetric = undefined
---
---
+
+--SPECME
+updateMetric :: Metric -> LibratoM IO (LibratoResponse ())
+updateMetric metric = putJSON_ path metric
+  where path = "/metrics/" ++ encodeUtf8 name
+        name = metric ^. metricName
 
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip R.runReaderT
+
+-----------------------------
+-- Helpers
+-----------------------------
 
 --TODO: cleanup
 consumeStreamingCall :: LibratoM IO (S.InputStream a) -> LibratoM IO (LibratoResponse [a])

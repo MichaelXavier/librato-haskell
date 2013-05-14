@@ -258,7 +258,7 @@ instance QueryLike MetricsSearch where
           toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
 
 
-newtype Metrics = Metrics { _unMetrics :: [Metric] }
+newtype Metrics = Metrics { _unMetrics :: [Metric] } deriving (Show, Eq)
 
 makeClassy ''Metrics
 
@@ -305,7 +305,9 @@ instance FromJSON MetricSummarization where
     where parseSummarization o = MetricSummarization <$> parseJSON (Object o)
                                                      <*> (H.toList <$> o .: "measurements")
 
-newtype MetricNames = MetricNames { _unMetricNames :: [Text] }
+newtype MetricNames = MetricNames {
+  _unMetricNames :: [Text]
+} deriving (Show, Eq)
 
 makeClassy ''MetricNames
 
