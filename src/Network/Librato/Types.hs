@@ -9,6 +9,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Librato.Types ( LibratoM
                              , Tag(..)
+                             , ID(..)
+                             , Unit(..)
+                             , HasID(..)
                              , HasTag(..)
                              , Metric(..)
                              , HasMetric(..)
@@ -32,13 +35,18 @@ module Network.Librato.Types ( LibratoM
                              , ErrorDetail(..)
                              , QueryLike(..)
                              , PaginatedRequest(..)
-                             , HasPaginatedRequest(..)
+                             , requestPagination
+                             , requestQuery
                              , MetricsSearch(..)
                              , HasMetricsSearch(..)
                              , HasPaginationOptions(..)
                              , MetricSummarization(..)
                              , HasMetricSummarization(..)
                              , Measurement(..)
+                             , Dashboard(..)
+                             , HasDashboard(..)
+                             , NewDashboard(..)
+                             , LDashboard(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -91,6 +99,12 @@ makeClassy ''PaginationOptions
 instance Default PaginationOptions where
   def = PaginationOptions 0 100
 
+newtype ID = ID { _unID :: Text } deriving (Show, Eq, FromJSON, ToJSON)
+
+makeClassy ''ID
+
+data Unit = Unit deriving (Show, Eq)
+
 data Tag = Tag { _tagName :: Text } deriving (Show, Eq)
 
 makeClassy ''Tag
@@ -136,6 +150,20 @@ instance ToJSON Metric where
                     , "description"  .= (m ^. metricDescription)
                     , "display_name" .= (m ^. metricDisplayName)
                     , "source"       .= (m ^. metricSource) ]
+
+--TODO: fields
+data Dashboard a = Dashboard { _dashboardID :: a } deriving (Show, Eq)
+
+makeClassy ''Dashboard
+
+type NewDashboard = Dashboard ()
+type LDashboard   = Dashboard ID
+
+instance FromJSON LDashboard where
+  parseJSON = undefined
+
+instance ToJSON a => ToJSON (Dashboard a) where
+  toJSON = undefined
 
 type LibratoResponse a = Either ErrorDetail a
 
@@ -201,6 +229,9 @@ makeClassy ''PaginatedResponse
 instance FromJSON (PaginatedResponse Metric) where
   parseJSON = parsePaginatedResponse "Metric" "metrics"
 
+instance FromJSON (PaginatedResponse LDashboard) where
+  parseJSON = parsePaginatedResponse "Dashboard" "dashboards" -- probably
+
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"
                                               <*> obj .: payloadKey
@@ -210,7 +241,7 @@ data PaginatedRequest a = PaginatedRequest {
 , _requestQuery      :: a
 } deriving (Show, Eq)
 
-makeClassy ''PaginatedRequest
+makeLenses ''PaginatedRequest
 
 instance QueryLike a => QueryLike (PaginatedRequest a) where
   toQuery po = toQuery innerQuery ++ toQuery pagination

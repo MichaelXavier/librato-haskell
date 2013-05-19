@@ -11,7 +11,8 @@ module Network.Librato.REST ( indexResourceAll
                             , deleteResource
                             , deleteResourceWithBody
                             , updateResource
-                            , MetricResource(..)) where
+                            , MetricResource(..)
+                            , DashboardResource(..)) where
 
 import ClassyPrelude
 import Control.Exception (throw)
@@ -67,7 +68,6 @@ class PayloadResource r a | r -> a where
 -------------------------------
 -- Metrics
 -------------------------------
--- can you newtype with a type parameter?
 newtype MetricResource a = MetricResource { _metricResourcePayload :: a }
 
 makeClassy ''MetricResource
@@ -86,6 +86,38 @@ instance PayloadWithID MetricName where
 
 instance PayloadWithID Metric where
   payloadID = payloadID . view metricName
+
+-------------------------------
+-- Dashboard
+-------------------------------
+newtype DashboardResource a = DashboardResource { _dashboardResourcePayload :: a }
+
+makeClassy ''DashboardResource
+
+instance NamedResource (DashboardResource a) where
+  resourceName = const "dashboards"
+
+instance PayloadResource (DashboardResource a) a where
+  resourcePayload = dashboardResourcePayload
+
+instance PayloadWithID LDashboard where
+  payloadID = payloadID . view dashboardID
+
+-------------------------------
+-- Generally applicable instances
+-------------------------------
+instance QueryLike Unit where
+  toQuery = const []
+
+--TODO: killme
+instance QueryLike () where
+  toQuery = const []
+
+instance PayloadWithID ID where
+  payloadID = encodeUtf8 . view unID
+
+instance QueryLike ID where
+  toQuery = const []
 
 -------------------------------
 -- REST calls

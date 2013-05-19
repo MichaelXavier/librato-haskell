@@ -1,4 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude    #-}
+
 module Network.Librato ( getMetrics
                        , getAllMetrics
                        , getMetric
@@ -48,27 +49,23 @@ updateMetric = updateResource . MetricResource
 -----------------------------
 -- Dashboards
 -----------------------------
---getAllDashboards :: LibratoM IO (LibratoResponse [Dashboard])
---getAllDashboards = undefined
---
---getDashboards :: LibratoM IO (S.InputStream Dashboard)
---getDashboards = undefined
---
-----TODO: newtype to DashboardID
-----TODO: should this even be Maybe
---getDashboard :: Text -> LibratoM IO (Maybe Dashboard)
---getDashboard = undefined
---
-----TODO: new instrument has no id
---createDashboard :: NewDashboard -> LibratoM IO (LibratoResponse Dashboard)
---createDashboard = undefined
---
---updateDashboard :: Dashboard -> LibratoM IO (LibratoResponse Dashboard)
---updateDashboard = undefined
---
-----TODO: newtype to DashboardID
---deleteDashboard :: Text -> LibratoM IO (LibratoResponse ())
---deleteDashboard = undefined
+getAllDashboards :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LDashboard])
+getAllDashboards = indexResourceAll . DashboardResource . unitRequest
+
+getDashboards :: PaginatedRequest () -> LibratoM IO (S.InputStream LDashboard)
+getDashboards = indexResourceStream . DashboardResource . unitRequest
+
+getDashboard :: ID -> LibratoM IO (LibratoResponse LDashboard)
+getDashboard = showResource . DashboardResource
+
+createDashboard :: NewDashboard -> LibratoM IO (LibratoResponse ())
+createDashboard = createResource . DashboardResource
+
+updateDashboard :: LDashboard -> LibratoM IO (LibratoResponse ())
+updateDashboard = updateResource . DashboardResource
+
+deleteDashboard :: ID -> LibratoM IO (LibratoResponse ())
+deleteDashboard = deleteResource . DashboardResource
 
 -----------------------------
 -- Instruments
@@ -100,3 +97,9 @@ updateMetric = updateResource . MetricResource
 -----------------------------
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip R.runReaderT
+
+-----------------------------
+-- Helpers
+-----------------------------
+unitRequest :: PaginatedRequest () -> PaginatedRequest Unit
+unitRequest q = q & requestQuery .~ Unit
