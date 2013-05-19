@@ -13,6 +13,9 @@ module Network.Librato.REST ( indexResourceAll
                             , updateResource
                             , MetricResource(..)
                             , InstrumentResource(..)
+                            , ServiceResource(..)
+                            , ChartTokenResource(..)
+                            , UserResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -118,7 +121,55 @@ instance PayloadResource (InstrumentResource a) a where
   resourcePayload = instrumentResourcePayload
 
 instance PayloadWithID LInstrument where
-  payloadID = payloadID . view instrumentTD
+  payloadID = payloadID . view instrumentID
+
+-------------------------------
+-- Service
+-------------------------------
+newtype ServiceResource a = ServiceResource { _serviceResourcePayload :: a }
+
+makeClassy ''ServiceResource
+
+instance NamedResource (ServiceResource a) where
+  resourceName = const "services"
+
+instance PayloadResource (ServiceResource a) a where
+  resourcePayload = serviceResourcePayload
+
+instance PayloadWithID LService where
+  payloadID = payloadID . view serviceID
+
+-------------------------------
+-- ChartToken
+-------------------------------
+newtype ChartTokenResource a = ChartTokenResource { _chartTokenResourcePayload :: a }
+
+makeClassy ''ChartTokenResource
+
+instance NamedResource (ChartTokenResource a) where
+  resourceName = const "chart_tokens"
+
+instance PayloadResource (ChartTokenResource a) a where
+  resourcePayload = chartTokenResourcePayload
+
+instance PayloadWithID LChartToken where
+  payloadID = payloadID . view chartTokenID
+
+-------------------------------
+-- User
+-------------------------------
+newtype UserResource a = UserResource { _userResourcePayload :: a }
+
+makeClassy ''UserResource
+
+instance NamedResource (UserResource a) where
+  resourceName = const "chart_tokens"
+
+instance PayloadResource (UserResource a) a where
+  resourcePayload = userResourcePayload
+
+instance PayloadWithID LUser where
+  payloadID = payloadID . view userID
 
 -------------------------------
 -- Generally applicable instances

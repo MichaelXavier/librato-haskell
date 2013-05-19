@@ -51,6 +51,18 @@ module Network.Librato.Types ( LibratoM
                              , HasInstrument(..)
                              , NewInstrument(..)
                              , LInstrument(..)
+                             , Service(..)
+                             , HasService(..)
+                             , NewService(..)
+                             , LService(..)
+                             , ChartToken(..)
+                             , HasChartToken(..)
+                             , NewChartToken(..)
+                             , LChartToken(..)
+                             , User(..)
+                             , HasUser(..)
+                             , NewUser(..)
+                             , LUser(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -170,7 +182,7 @@ instance ToJSON a => ToJSON (Dashboard a) where
   toJSON = undefined
 
 --TODO: fields
-data Instrument a = Instrument { _instrumentTD :: a } deriving (Show, Eq)
+data Instrument a = Instrument { _instrumentID :: a } deriving (Show, Eq)
 
 makeClassy ''Instrument
 
@@ -181,6 +193,48 @@ instance FromJSON LInstrument where
   parseJSON = undefined
 
 instance ToJSON a => ToJSON (Instrument a) where
+  toJSON = undefined
+
+--TODO: fields
+data Service a = Service { _serviceID :: a } deriving (Show, Eq)
+
+makeClassy ''Service
+
+type NewService = Service ()
+type LService   = Service ID
+
+instance FromJSON LService where
+  parseJSON = undefined
+
+instance ToJSON a => ToJSON (Service a) where
+  toJSON = undefined
+
+--TODO: fields
+data ChartToken a = ChartToken { _chartTokenID :: a } deriving (Show, Eq)
+
+makeClassy ''ChartToken
+
+type NewChartToken = ChartToken ()
+type LChartToken   = ChartToken ID
+
+instance FromJSON LChartToken where
+  parseJSON = undefined
+
+instance ToJSON a => ToJSON (ChartToken a) where
+  toJSON = undefined
+
+--TODO: fields
+data User a = User { _userID :: a } deriving (Show, Eq)
+
+makeClassy ''User
+
+type NewUser = User ()
+type LUser   = User ID
+
+instance FromJSON LUser where
+  parseJSON = undefined
+
+instance ToJSON a => ToJSON (User a) where
   toJSON = undefined
 
 type LibratoResponse a = Either ErrorDetail a
@@ -252,6 +306,15 @@ instance FromJSON (PaginatedResponse LDashboard) where
 
 instance FromJSON (PaginatedResponse LInstrument) where
   parseJSON = parsePaginatedResponse "Instrument" "instruments" -- probably
+
+instance FromJSON (PaginatedResponse LService) where
+  parseJSON = parsePaginatedResponse "Service" "service" -- probably
+
+instance FromJSON (PaginatedResponse LChartToken) where
+  parseJSON = parsePaginatedResponse "ChartToken" "chart_token" -- probably
+
+instance FromJSON (PaginatedResponse LUser) where
+  parseJSON = parsePaginatedResponse "User" "user" -- probably
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"

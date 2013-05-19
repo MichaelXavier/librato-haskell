@@ -20,6 +20,24 @@ module Network.Librato ( getMetrics
                        , createInstrument
                        , updateInstrument
                        , deleteInstrument
+                       , getAllServices
+                       , getServices
+                       , getService
+                       , createService
+                       , updateService
+                       , deleteService
+                       , getAllChartTokens
+                       , getChartTokens
+                       , getChartToken
+                       , createChartToken
+                       , updateChartToken
+                       , deleteChartToken
+                       , getAllUsers
+                       , getUsers
+                       , getUser
+                       , createUser
+                       , updateUser
+                       , deleteUser
                        , module Network.Librato.Types) where
 
 
@@ -100,6 +118,69 @@ updateInstrument = updateResource . InstrumentResource
 
 deleteInstrument :: ID -> LibratoM IO (LibratoResponse ())
 deleteInstrument = deleteResource . InstrumentResource
+
+-----------------------------
+-- Services
+-----------------------------
+getAllServices :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LService])
+getAllServices = indexResourceAll . ServiceResource . unitRequest
+
+getServices :: PaginatedRequest () -> LibratoM IO (S.InputStream LService)
+getServices = indexResourceStream . ServiceResource . unitRequest
+
+getService :: ID -> LibratoM IO (LibratoResponse LService)
+getService = showResource . ServiceResource
+
+createService :: NewService -> LibratoM IO (LibratoResponse ())
+createService = createResource . ServiceResource
+
+updateService :: LService -> LibratoM IO (LibratoResponse ())
+updateService = updateResource . ServiceResource
+
+deleteService :: ID -> LibratoM IO (LibratoResponse ())
+deleteService = deleteResource . ServiceResource
+
+-----------------------------
+-- ChartTokens
+-----------------------------
+getAllChartTokens :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LChartToken])
+getAllChartTokens = indexResourceAll . ChartTokenResource . unitRequest
+
+getChartTokens :: PaginatedRequest () -> LibratoM IO (S.InputStream LChartToken)
+getChartTokens = indexResourceStream . ChartTokenResource . unitRequest
+
+getChartToken :: ID -> LibratoM IO (LibratoResponse LChartToken)
+getChartToken = showResource . ChartTokenResource
+
+createChartToken :: NewChartToken -> LibratoM IO (LibratoResponse ())
+createChartToken = createResource . ChartTokenResource
+
+updateChartToken :: LChartToken -> LibratoM IO (LibratoResponse ())
+updateChartToken = updateResource . ChartTokenResource
+
+deleteChartToken :: ID -> LibratoM IO (LibratoResponse ())
+deleteChartToken = deleteResource . ChartTokenResource
+
+-----------------------------
+-- Users
+-----------------------------
+getAllUsers :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LUser])
+getAllUsers = indexResourceAll . UserResource . unitRequest
+
+getUsers :: PaginatedRequest () -> LibratoM IO (S.InputStream LUser)
+getUsers = indexResourceStream . UserResource . unitRequest
+
+getUser :: ID -> LibratoM IO (LibratoResponse LUser)
+getUser = showResource . UserResource
+
+createUser :: NewUser -> LibratoM IO (LibratoResponse ())
+createUser = createResource . UserResource
+
+updateUser :: LUser -> LibratoM IO (LibratoResponse ())
+updateUser = updateResource . UserResource
+
+deleteUser :: ID -> LibratoM IO (LibratoResponse ())
+deleteUser = deleteResource . UserResource
 
 -----------------------------
 -- LibratoM tools
