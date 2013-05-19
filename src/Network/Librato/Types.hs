@@ -51,10 +51,12 @@ module Network.Librato.Types ( LibratoM
                              , HasInstrument(..)
                              , NewInstrument(..)
                              , LInstrument(..)
+                             , ServiceType(..)
                              , Service(..)
                              , HasService(..)
                              , NewService(..)
                              , LService(..)
+                             , ChartEntityType(..)
                              , ChartToken(..)
                              , HasChartToken(..)
                              , NewChartToken(..)
@@ -71,6 +73,7 @@ import Control.Lens.TH
 import Control.Monad.Trans.Reader (ReaderT)
 import Data.Aeson ( FromJSON(..)
                   , withObject
+                  , withText
                   , Object
                   , Value(..)
                   , ToJSON(..)
@@ -168,20 +171,6 @@ instance ToJSON Metric where
                     , "source"       .= (m ^. metricSource) ]
 
 --TODO: fields
-data Dashboard a = Dashboard { _dashboardID :: a } deriving (Show, Eq)
-
-makeClassy ''Dashboard
-
-type NewDashboard = Dashboard ()
-type LDashboard   = Dashboard ID
-
-instance FromJSON LDashboard where
-  parseJSON = undefined
-
-instance ToJSON a => ToJSON (Dashboard a) where
-  toJSON = undefined
-
---TODO: fields
 data Instrument a = Instrument { _instrumentID :: a } deriving (Show, Eq)
 
 makeClassy ''Instrument
@@ -195,8 +184,53 @@ instance FromJSON LInstrument where
 instance ToJSON a => ToJSON (Instrument a) where
   toJSON = undefined
 
---TODO: fields
-data Service a = Service { _serviceID :: a } deriving (Show, Eq)
+data Dashboard a = Dashboard { _dashboardID :: a
+                             , _dashboardName :: Text
+                             , _dashboardInstruments :: [Instrument a] } deriving (Show, Eq)
+
+makeClassy ''Dashboard
+
+type NewDashboard = Dashboard ()
+type LDashboard   = Dashboard ID
+
+instance FromJSON LDashboard where
+  parseJSON = withObject "LDashboard" parseLDashboard
+    where parseLDashboard obj = Dashboard <$> obj .: "id"
+                                          <*> obj .: "name"
+                                          <*> obj .: "instruments"
+
+instance ToJSON a => ToJSON (Dashboard a) where
+  toJSON d = object [ "id"          .= (d ^. dashboardID)
+                    , "name"        .= (d ^. dashboardName)
+                    , "instruments" .= (d ^. dashboardInstruments) ]
+
+data ServiceType = CampfireService  |
+                   HipChatService   |
+                   MailService      |
+                   OpsGenieService  |
+                   PagerDutyService |
+                   WebhookService deriving (Show, Eq)
+
+instance FromJSON ServiceType where
+  parseJSON = withText "ServiceType" parseServiceType
+    where parseServiceType "campfire"  = pure CampfireService
+          parseServiceType "hipchat"   = pure HipChatService
+          parseServiceType "opsgenie"  = pure OpsGenieService
+          parseServiceType "pagerduty" = pure PagerDutyService
+          parseServiceType "webhook"   = pure WebhookService
+          parseServiceType s           = fail $ "unexpected service type " <> unpack s
+
+instance ToJSON ServiceType where
+  toJSON CampfireService  = "campfire"
+  toJSON HipChatService   = "hipchat"
+  toJSON OpsGenieService  = "opsgenie"
+  toJSON PagerDutyService = "pagerduty"
+  toJSON WebhookService   = "webhook"
+
+data Service a = Service { _serviceID       :: a
+                         , _serviceType     :: ServiceType
+                         , _serviceSettings :: Object
+                         , _serviceTitle    :: Text } deriving (Show, Eq)
 
 makeClassy ''Service
 
@@ -204,13 +238,34 @@ type NewService = Service ()
 type LService   = Service ID
 
 instance FromJSON LService where
-  parseJSON = undefined
+  parseJSON = withObject "LService" parseLService
+    where parseLService obj = Service <$> obj .: "id"
+                                      <*> obj .: "type"
+                                      <*> obj .: "settings"
+                                      <*> obj .: "title"
 
 instance ToJSON a => ToJSON (Service a) where
-  toJSON = undefined
+  toJSON obj = object [ "id"       .= (obj ^. serviceID)
+                      , "type"     .= (obj ^. serviceType)
+                      , "settings" .= (obj ^. serviceSettings)
+                      , "title"    .= (obj ^. serviceTitle) ]
 
---TODO: fields
-data ChartToken a = ChartToken { _chartTokenID :: a } deriving (Show, Eq)
+data ChartEntityType = DashboardEntityType |
+                       InstrumentEntityType deriving (Show, Eq)
+
+instance FromJSON ChartEntityType where
+  parseJSON = withText "ChartEntityType" parseChartEntityType
+    where parseChartEntityType "dashboard"  = pure DashboardEntityType
+          parseChartEntityType "instrument" = pure InstrumentEntityType
+          parseChartEntityType s            = fail $ "unexpected chart entity type " <> unpack s
+
+instance ToJSON ChartEntityType where
+  toJSON DashboardEntityType  = "dashboard"
+  toJSON InstrumentEntityType = "instrument"
+
+data ChartToken a = ChartToken { _chartTokenID :: a
+                               , _chartTokenEntityType :: ChartEntityType
+                               , _chartTokenEntityID   :: ID } deriving (Show, Eq)
 
 makeClassy ''ChartToken
 
@@ -218,24 +273,55 @@ type NewChartToken = ChartToken ()
 type LChartToken   = ChartToken ID
 
 instance FromJSON LChartToken where
-  parseJSON = undefined
+  parseJSON = withObject "LChartToken" parseLChartToken
+    where parseLChartToken obj = ChartToken <$> obj .: "token"
+                                            <*> obj .: "entity_type"
+                                            <*> obj .: "entity_id"
 
 instance ToJSON a => ToJSON (ChartToken a) where
-  toJSON = undefined
+  toJSON obj = object [ "token"       .= (obj ^. chartTokenID)
+                      , "entity_type" .= (obj ^. chartTokenEntityType)
+                      , "entity_id"   .= (obj ^. chartTokenEntityID) ]
 
 --TODO: fields
-data User a = User { _userID :: a } deriving (Show, Eq)
+data User i p t = User { _userID        :: i
+                       , _userEmail     :: Text
+                       , _userPassword  :: p
+                       , _userAPIToken  :: Text
+                       , _userReference :: Text
+                       , _userName      :: Maybe Text
+                       , _userCompany   :: Maybe Text
+                       , _userTimeZone  :: Maybe Text -- see if a stronger type can be used
+                       , _userCreatedAt :: t
+                       , _userUpdatedAt :: t } deriving (Show, Eq)
 
 makeClassy ''User
 
-type NewUser = User ()
-type LUser   = User ID
+type NewUser = User () Text ()
+type LUser   = User ID () Text -- see if we can use a datetime
 
 instance FromJSON LUser where
-  parseJSON = undefined
+  parseJSON = withObject "LUser" parseLUser
+    where parseLUser obj = User <$> obj .:  "id"
+                                <*> obj .:  "email"
+                                <*> pure ()
+                                <*> obj .:  "api_token"
+                                <*> obj .:  "reference"
+                                <*> obj .:? "name"
+                                <*> obj .:? "company"
+                                <*> obj .:  "time_zone"
+                                <*> obj .:  "created_at"
+                                <*> obj .:  "updated_at"
 
-instance ToJSON a => ToJSON (User a) where
-  toJSON = undefined
+instance (ToJSON i, ToJSON p) => ToJSON (User i p t) where
+  toJSON obj = object [ "id"        .= (obj ^. userID)
+                      , "email"     .= (obj ^. userEmail)
+                      , "password"  .= (obj ^. userPassword)
+                      , "api_token" .= (obj ^. userAPIToken)
+                      , "reference" .= (obj ^. userReference)
+                      , "name"      .= (obj ^. userName)
+                      , "company"   .= (obj ^. userCompany)
+                      , "time_zone" .= (obj ^. userTimeZone) ]
 
 type LibratoResponse a = Either ErrorDetail a
 
