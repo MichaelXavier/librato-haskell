@@ -47,6 +47,10 @@ module Network.Librato.Types ( LibratoM
                              , HasDashboard(..)
                              , NewDashboard(..)
                              , LDashboard(..)
+                             , Instrument(..)
+                             , HasInstrument(..)
+                             , NewInstrument(..)
+                             , LInstrument(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -165,6 +169,20 @@ instance FromJSON LDashboard where
 instance ToJSON a => ToJSON (Dashboard a) where
   toJSON = undefined
 
+--TODO: fields
+data Instrument a = Instrument { _instrumentTD :: a } deriving (Show, Eq)
+
+makeClassy ''Instrument
+
+type NewInstrument = Instrument ()
+type LInstrument   = Instrument ID
+
+instance FromJSON LInstrument where
+  parseJSON = undefined
+
+instance ToJSON a => ToJSON (Instrument a) where
+  toJSON = undefined
+
 type LibratoResponse a = Either ErrorDetail a
 
 data ErrorDetail = ParseError Text               |
@@ -231,6 +249,9 @@ instance FromJSON (PaginatedResponse Metric) where
 
 instance FromJSON (PaginatedResponse LDashboard) where
   parseJSON = parsePaginatedResponse "Dashboard" "dashboards" -- probably
+
+instance FromJSON (PaginatedResponse LInstrument) where
+  parseJSON = parsePaginatedResponse "Instrument" "instruments" -- probably
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"

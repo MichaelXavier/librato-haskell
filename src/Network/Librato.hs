@@ -8,7 +8,20 @@ module Network.Librato ( getMetrics
                        , runLibratoM
                        , deleteMetric
                        , deleteMetrics
+                       , getAllDashboards
+                       , getDashboards
+                       , getDashboard
+                       , createDashboard
+                       , updateDashboard
+                       , deleteDashboard
+                       , getAllInstruments
+                       , getInstruments
+                       , getInstrument
+                       , createInstrument
+                       , updateInstrument
+                       , deleteInstrument
                        , module Network.Librato.Types) where
+
 
 import ClassyPrelude
 import Control.Lens
@@ -70,27 +83,23 @@ deleteDashboard = deleteResource . DashboardResource
 -----------------------------
 -- Instruments
 -----------------------------
---getAllInstruments :: LibratoM IO (LibratoResponse [Instrument])
---getAllInstruments = undefined
---
---getInstruments :: LibratoM IO (S.InputStream Instrument)
---getInstruments = undefined
---
-----TODO: newtype to InstrumentID
-----TODO: should this even be Maybe
---getInstrument :: Text -> LibratoM IO (Maybe Instrument)
---getInstrument = undefined
---
-----TODO: new instrument has no id
---createInstrument :: NewInstrument -> LibratoM IO (LibratoResponse Instrument)
---createInstrument = undefined
---
---updateInstrument :: Instrument -> LibratoM IO (LibratoResponse Instrument)
---updateInstrument = undefined
---
-----TODO: newtype to InstrumentID
---deleteInstrument :: Text -> LibratoM IO (LibratoResponse ())
---deleteInstrument = undefined
+getAllInstruments :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LInstrument])
+getAllInstruments = indexResourceAll . InstrumentResource . unitRequest
+
+getInstruments :: PaginatedRequest () -> LibratoM IO (S.InputStream LInstrument)
+getInstruments = indexResourceStream . InstrumentResource . unitRequest
+
+getInstrument :: ID -> LibratoM IO (LibratoResponse LInstrument)
+getInstrument = showResource . InstrumentResource
+
+createInstrument :: NewInstrument -> LibratoM IO (LibratoResponse ())
+createInstrument = createResource . InstrumentResource
+
+updateInstrument :: LInstrument -> LibratoM IO (LibratoResponse ())
+updateInstrument = updateResource . InstrumentResource
+
+deleteInstrument :: ID -> LibratoM IO (LibratoResponse ())
+deleteInstrument = deleteResource . InstrumentResource
 
 -----------------------------
 -- LibratoM tools

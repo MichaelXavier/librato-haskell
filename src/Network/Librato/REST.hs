@@ -12,6 +12,7 @@ module Network.Librato.REST ( indexResourceAll
                             , deleteResourceWithBody
                             , updateResource
                             , MetricResource(..)
+                            , InstrumentResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -102,6 +103,22 @@ instance PayloadResource (DashboardResource a) a where
 
 instance PayloadWithID LDashboard where
   payloadID = payloadID . view dashboardID
+
+-------------------------------
+-- Instrument
+-------------------------------
+newtype InstrumentResource a = InstrumentResource { _instrumentResourcePayload :: a }
+
+makeClassy ''InstrumentResource
+
+instance NamedResource (InstrumentResource a) where
+  resourceName = const "instruments"
+
+instance PayloadResource (InstrumentResource a) a where
+  resourcePayload = instrumentResourcePayload
+
+instance PayloadWithID LInstrument where
+  payloadID = payloadID . view instrumentTD
 
 -------------------------------
 -- Generally applicable instances
