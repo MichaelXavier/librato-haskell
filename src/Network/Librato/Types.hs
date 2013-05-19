@@ -170,8 +170,61 @@ instance ToJSON Metric where
                     , "display_name" .= (m ^. metricDisplayName)
                     , "source"       .= (m ^. metricSource) ]
 
---TODO: fields
-data Instrument a = Instrument { _instrumentID :: a } deriving (Show, Eq)
+data StreamSource = AllSources |
+                    SourcePattern Text deriving (Show, Eq)
+
+instance FromJSON StreamSource where
+  parseJSON = withText "StreamSource" parseStreamSource
+    where parseStreamSource "*" = pure AllSources
+          parseStreamSource p   = pure $ SourcePattern p
+
+instance ToJSON StreamSource where
+  toJSON AllSources        = String "*"
+  toJSON (SourcePattern p) = String p
+
+data GroupFunction = Average |
+                     Sum     |
+                     Breakout deriving (Show, Eq)
+
+instance FromJSON GroupFunction where
+  parseJSON = withText "GroupFunction" parseStreamSource
+    where parseStreamSource "average"  = pure Average
+          parseStreamSource "sum"      = pure Sum
+          parseStreamSource "breakout" = pure Breakout
+          parseStreamSource t          = fail $ "unknown group function " <> unpack t
+
+instance ToJSON GroupFunction where
+  toJSON Average  = String "average"
+  toJSON Sum      = String "sum"
+  toJSON Breakout = String "breakout"
+
+data Stream = Stream { _streamMetricName    :: MetricName
+                     , _streamSource        :: StreamSource
+                     , _streamGroupFunction :: GroupFunction
+                     , _streamColor         :: Text } deriving (Show, Eq)
+
+makeClassy ''Stream
+
+--FIXME: the documentation states there's a "name" attribute but the sample
+--request/response shows a "metric" attribute instead. Emailed librato to
+--clarify
+instance FromJSON Stream where
+  parseJSON = withObject "Stream" parseStream
+    where parseStream obj = Stream <$> obj .: "name"
+                                   <*> obj .: "source"
+                                   <*> obj .: "group_function"
+                                   <*> obj .: "color"
+
+instance ToJSON Stream where
+  toJSON s = object [ "name"           .= (s ^. streamMetricName)
+                    , "source"         .= (s ^. streamSource)
+                    , "group_function" .= (s ^. streamGroupFunction)
+                    , "color"          .= (s ^. streamColor) ]
+
+--TODO: attributes
+data Instrument a = Instrument { _instrumentID      :: a
+                               , _instrumentName    :: Text
+                               , _instrumentStreams :: [Stream] } deriving (Show, Eq)
 
 makeClassy ''Instrument
 
@@ -179,10 +232,15 @@ type NewInstrument = Instrument ()
 type LInstrument   = Instrument ID
 
 instance FromJSON LInstrument where
-  parseJSON = undefined
+  parseJSON = withObject "LInstrument" parseLInstrument
+    where parseLInstrument obj = Instrument <$> obj .: "id"
+                                            <*> obj .: "name"
+                                            <*> obj .: "streams"
 
 instance ToJSON a => ToJSON (Instrument a) where
-  toJSON = undefined
+  toJSON i = object [ "id"      .= (i ^. instrumentID) 
+                    , "name"    .= (i ^. instrumentName)
+                    , "streams" .= (i ^. instrumentStreams) ]
 
 data Dashboard a = Dashboard { _dashboardID :: a
                              , _dashboardName :: Text
