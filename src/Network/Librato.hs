@@ -1,9 +1,4 @@
 {-# LANGUAGE NoImplicitPrelude    #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE TupleSections        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
 module Network.Librato ( getMetrics
                        , getAllMetrics
                        , getMetric
@@ -14,339 +9,94 @@ module Network.Librato ( getMetrics
                        , deleteMetrics
                        , module Network.Librato.Types) where
 
-import Blaze.ByteString.Builder (Builder)
 import ClassyPrelude
-import Control.Exception (throw)
 import Control.Lens
-import Control.Monad ((<=<))
 import qualified Control.Monad.Trans.Reader as R
-import Data.Default
-import Data.Ix (inRange)
-import Data.Aeson ( FromJSON
-                  , fromJSON
-                  , ToJSON(..)
-                  , Result(..)
-                  , encode
-                  , json)
-import Debug.Trace ( traceShow
-                   , traceIO)
-import OpenSSL (withOpenSSL)
-import Network.Http.Client ( sendRequest
-                           , receiveResponse
-                           , buildRequest
-                           , Response
-                           , RequestBuilder
-                           , Method(..)
-                           , Connection
-                           , inputStreamBody
-                           , Request
-                           , withConnection
-                           , getStatusCode
-                           , openConnection
-                           , openConnectionSSL
-                           , baselineContextSSL
-                           , http
-                           , setContentType
-                           , setAccept
-                           , setAuthorizationBasic
-                           , setHeader)
-import Network.HTTP.Types ( QueryLike(..)
-                          , renderQuery)
-import System.IO.Streams.Attoparsec (parseFromStream)
 import qualified System.IO.Streams as S
 
+import Network.Librato.REST
 import Network.Librato.Types
 
 -----------------------------
 -- Metrics
 -----------------------------
 getAllMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (LibratoResponse [Metric])
-getAllMetrics = consumeStreamingCall . getMetrics
+getAllMetrics = indexResourceAll . MetricResource
 
 getMetrics :: PaginatedRequest MetricsSearch -> LibratoM IO (S.InputStream Metric)
-getMetrics = getJSONRequestStreaming "/metrics"
+getMetrics = indexResourceStream . MetricResource
 
---TODO: test the Nothing case. It will probably still return a Left NotFoundError. Should this even be Maybe?
-getMetric :: MetricLookup -> LibratoM IO (LibratoResponse (Maybe MetricSummarization))
-getMetric params = do conf <- R.ask
-                      liftIO $ getJSONRequest conf path params
-  where path = "/metrics/" ++ encodeUtf8 name
-        name = params ^. metricLookupName
+getMetric :: MetricLookup -> LibratoM IO (LibratoResponse MetricSummarization)
+getMetric = showResource . MetricResource
+
+createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
+createMetrics = createResource . MetricResource . Metrics
 
 createMetric :: Metric -> LibratoM IO (LibratoResponse ())
 createMetric = createMetrics . singleton
 
-createMetrics :: [Metric] -> LibratoM IO (LibratoResponse ())
-createMetrics = postJSON_ "/metrics" . Metrics
+deleteMetrics :: [MetricName] -> LibratoM IO (LibratoResponse ())
+deleteMetrics = deleteResourceWithBody . MetricResource
 
-deleteMetrics :: [Text] -> LibratoM IO (LibratoResponse ())
-deleteMetrics = deleteJSON_ "/metrics" . MetricNames
---
---TODO: probably newtype name?
-deleteMetric :: Text -> LibratoM IO (LibratoResponse ())
-deleteMetric = delete_ . buildPath
-  where buildPath = ("/metrics/" ++) . encodeUtf8
+deleteMetric :: MetricName -> LibratoM IO (LibratoResponse ())
+deleteMetric = deleteResource . MetricResource
 
 --SPECME
 updateMetric :: Metric -> LibratoM IO (LibratoResponse ())
-updateMetric metric = putJSON_ path metric
-  where path = "/metrics/" ++ encodeUtf8 name
-        name = metric ^. metricName
+updateMetric = updateResource . MetricResource
 
 -----------------------------
 -- Dashboards
 -----------------------------
-getAllDashboards :: LibratoM IO (LibratoResponse [Dashboard])
-getAllDashboards = undefined
-
-getDashboards :: LibratoM IO (S.InputStream Dashboard)
-getDashboards = undefined
-
---TODO: newtype to DashboardID
---TODO: should this even be Maybe
-getDashboard :: Text -> LibratoM IO (Maybe Dashboard)
-getDashboard = undefined
-
---TODO: new instrument has no id
-createDashboard :: NewDashboard -> LibratoM IO (LibratoResponse Dashboard)
-createDashboard = undefined
-
-updateDashboard :: Dashboard -> LibratoM IO (LibratoResponse Dashboard)
-updateDashboard = undefined
-
---TODO: newtype to DashboardID
-deleteDashboard :: Text -> LibratoM IO (LibratoResponse ())
-deleteDashboard = undefined
+--getAllDashboards :: LibratoM IO (LibratoResponse [Dashboard])
+--getAllDashboards = undefined
+--
+--getDashboards :: LibratoM IO (S.InputStream Dashboard)
+--getDashboards = undefined
+--
+----TODO: newtype to DashboardID
+----TODO: should this even be Maybe
+--getDashboard :: Text -> LibratoM IO (Maybe Dashboard)
+--getDashboard = undefined
+--
+----TODO: new instrument has no id
+--createDashboard :: NewDashboard -> LibratoM IO (LibratoResponse Dashboard)
+--createDashboard = undefined
+--
+--updateDashboard :: Dashboard -> LibratoM IO (LibratoResponse Dashboard)
+--updateDashboard = undefined
+--
+----TODO: newtype to DashboardID
+--deleteDashboard :: Text -> LibratoM IO (LibratoResponse ())
+--deleteDashboard = undefined
 
 -----------------------------
 -- Instruments
 -----------------------------
-getAllInstruments :: LibratoM IO (LibratoResponse [Instrument])
-getAllInstruments = undefined
-
-getInstruments :: LibratoM IO (S.InputStream Instrument)
-getInstruments = undefined
-
---TODO: newtype to InstrumentID
---TODO: should this even be Maybe
-getInstrument :: Text -> LibratoM IO (Maybe Instrument)
-getInstrument = undefined
-
---TODO: new instrument has no id
-createInstrument :: NewInstrument -> LibratoM IO (LibratoResponse Instrument)
-createInstrument = undefined
-
-updateInstrument :: Instrument -> LibratoM IO (LibratoResponse Instrument)
-updateInstrument = undefined
-
---TODO: newtype to InstrumentID
-deleteInstrument :: Text -> LibratoM IO (LibratoResponse ())
-deleteInstrument = undefined
+--getAllInstruments :: LibratoM IO (LibratoResponse [Instrument])
+--getAllInstruments = undefined
+--
+--getInstruments :: LibratoM IO (S.InputStream Instrument)
+--getInstruments = undefined
+--
+----TODO: newtype to InstrumentID
+----TODO: should this even be Maybe
+--getInstrument :: Text -> LibratoM IO (Maybe Instrument)
+--getInstrument = undefined
+--
+----TODO: new instrument has no id
+--createInstrument :: NewInstrument -> LibratoM IO (LibratoResponse Instrument)
+--createInstrument = undefined
+--
+--updateInstrument :: Instrument -> LibratoM IO (LibratoResponse Instrument)
+--updateInstrument = undefined
+--
+----TODO: newtype to InstrumentID
+--deleteInstrument :: Text -> LibratoM IO (LibratoResponse ())
+--deleteInstrument = undefined
 
 -----------------------------
 -- LibratoM tools
 -----------------------------
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
 runLibratoM = flip R.runReaderT
-
------------------------------
--- Helpers
------------------------------
-
---TODO: cleanup
-consumeStreamingCall :: LibratoM IO (S.InputStream a) -> LibratoM IO (LibratoResponse [a])
-consumeStreamingCall req = withErrorHandling consume
-  where consume = do stream <- req
-                     xs <- liftIO $ S.toList stream
-                     return $ Right xs
-        withErrorHandling = catch' handleError
-        handleError :: ErrorDetail -> LibratoM IO (LibratoResponse [b])
-        handleError ed = return $ Left ed
-        catch' = flip catch
-
-getJSONRequestStreaming :: ( QueryLike query
-                           , FromJSON (PaginatedResponse a))
-                           => ByteString
-                           -> PaginatedRequest query
-                           -> LibratoM IO (S.InputStream a)
-getJSONRequestStreaming path params = do
-  conf <- R.ask
-  let gen = pageGenerator conf path params
-  liftIO $ S.fromGenerator gen
-
---TODO: eitherT
-pageGenerator :: ( QueryLike query
-                 , FromJSON (PaginatedResponse a))
-                 => ClientConfiguration
-                 -> ByteString
-                 -> PaginatedRequest query
-                 -> S.Generator a () -- is this IO needed? see if we can strip it
-pageGenerator conf path params = do eResult <- getPage
-                                    case eResult of
-                                      Right result -> keepGoing result
-                                      Left e       -> throw e
-  where atEnd meta = len + offset >= found
-          where len    = meta ^. responseLength
-                offset = meta ^. responseOffset
-                found  = meta ^. responseFound
-        yieldResults result = mapM_ S.yield $ result ^. paginationPayload -- theres got to be a traversaal that will do this
-        nextPageParams meta = params & requestPagination . offset +~ (meta ^. responseLength)
-        getPage = liftIO $ getPaginatedPage conf path params
-        keepGoing result = do yieldResults result
-                              let meta = result ^. responseMeta
-                              let params' = nextPageParams meta
-                              --unless (atEnd meta) $ pageGenerator path params'
-                              pageGenerator conf path params'
-                              return ()
-
-
-getPaginatedPage :: ( QueryLike query
-                    , FromJSON (PaginatedResponse a))
-                    => ClientConfiguration
-                    -> ByteString
-                    -> query
-                    -> IO (LibratoResponse (PaginatedResponse a))
-getPaginatedPage = getJSONRequest
-
-
-setUserAgent :: ByteString -> RequestBuilder ()
-setUserAgent = setHeader "User-Agent"
-
---TODO: steal redirect following logic from "get" convenience function
-getJSONRequest :: ( QueryLike params
-                  , FromJSON resp)
-              => ClientConfiguration
-              -> ByteString
-              -> params
-              -> IO (LibratoResponse resp)
-getJSONRequest conf path params = do input <- noBody
-                                     executeRequest input GET conf path'
-  where path'            = path ++ renderQuery includeQuestion query
-        includeQuestion  = True
-        query            = toQuery params
-
-postJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
-postJSON_ = sendJSONBody_ POST
-
-putJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
-putJSON_ = sendJSONBody_ PUT
-
-deleteJSON_ :: ToJSON a => ByteString -> a -> LibratoM IO (LibratoResponse ())
-deleteJSON_ = sendJSONBody_ DELETE
-
-delete_ :: ByteString -> LibratoM IO (LibratoResponse ())
-delete_ path = do input <- liftIO $ noBody
-                  conf  <- R.ask 
-                  liftIO $ executeRequest_ input DELETE conf path
-
-sendJSONBody_ :: ToJSON a => Method -> ByteString -> a -> LibratoM IO (LibratoResponse ())
-sendJSONBody_ meth path payload = do 
-  conf          <- R.ask
-  liftIO $ do payloadStream <- jsonToInputStream payload
-              executeRequest_ payloadStream meth conf path
-
-executeRequest :: (FromJSON resp)
-                  => (S.InputStream ByteString)
-                  -> Method
-                  -> ClientConfiguration
-                  -> ByteString
-                  -> IO (LibratoResponse resp)
-executeRequest = executeRequestWithHandler jsonResponseHandler False
-
-executeRequest_ :: (S.InputStream ByteString)
-                   -> Method
-                   -> ClientConfiguration
-                   -> ByteString
-                   -> IO (LibratoResponse ())
-executeRequest_ = executeRequestWithHandler emptyResponseHandler True
-
-executeRequestWithHandler :: (Response -> S.InputStream ByteString -> IO (LibratoResponse a))
-                             -> Bool --HACK
-                             -> S.InputStream ByteString
-                             -> Method
-                             -> ClientConfiguration
-                             -> ByteString
-                             -> IO (LibratoResponse a)
-executeRequestWithHandler handler closeConn requestBodyStream meth conf path = do
-  liftIO $ withLibratoConnection conf $ \conn -> do
-    req <- reqFromConf conf path meth closeConn
-    sendRequest conn req (inputStreamBody requestBodyStream)
-    receiveResponse conn handler
-
-jsonToInputStream :: ToJSON a => a -> IO (S.InputStream ByteString)
-jsonToInputStream = S.fromLazyByteString . encode . toJSON
-
-noBody :: IO (S.InputStream ByteString)
-noBody = S.nullInput
-
-withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a
-withLibratoConnection conf action = withConnection establishConnection action
-  where host = conf ^. apiHostname
-        port = conf ^. apiPort
-        establishConnection
-          | conf ^. apiUseSSL = establishConnectionWithoutSSL
-          | otherwise      = establishConnectionWithoutSSL
-        establishConnectionWithoutSSL = openConnection host port
-        establishConnectionWithSSL    = withOpenSSL $ do ctx <- baselineContextSSL
-                                                         openConnectionSSL ctx host port
-
---TODO: EitherT
-reqFromConf :: ClientConfiguration -> ByteString -> Method -> Bool -> IO Request
-reqFromConf conf path meth closeConn = buildRequest $ do
-  http meth fullPath
-  setContentType "application/json"
-  setAccept      "application/json"
-  setAuthorizationBasic user token
-  setUserAgent ua
-  where fullPath = conf ^. apiBasePath ++ path
-        user     = conf ^. apiUser
-        token    = conf ^. apiToken
-        ua       = conf ^. apiUserAgent
-
-
-jsonResponseHandler :: (FromJSON resp)
-                       => Response
-                       -> S.InputStream ByteString
-                       -> IO (LibratoResponse resp)
-jsonResponseHandler = responseHandler handleJSONBody
-  where handleJSONBody :: FromJSON resp => S.InputStream ByteString -> IO (LibratoResponse resp)
-        handleJSONBody stream = do parsed <- parseJSONBody stream
-                                   return $ coerceParsed parsed
-
--- will const come and bite me in the ass? maybe `seq` ()
-emptyResponseHandler :: Response -> S.InputStream ByteString -> IO (LibratoResponse ())
-emptyResponseHandler = responseHandler (const . return . Right $ ())
-
--- I shoudln't have to specify the FromJSON
-responseHandler :: (FromJSON a)
-                   => (S.InputStream ByteString -> IO (LibratoResponse a))
-                   -> Response
-                   -> S.InputStream ByteString
-                   -> IO (LibratoResponse a)
-responseHandler bodyHandler resp stream
-  | responseOk    = bodyHandler stream -- do we need IO here?
-  | unauthorized  = returnError UnauthorizedError
-  | alreadyExists = returnError UnauthorizedError
-  | maintenance   = returnError MaintenanceError
-  | notFound      = returnError NotFoundError
-  | otherwise     = undefined --TODO
-  -- | otherwise     = do parsed <- parseJSONBody stream
-  --                      case parsed of
-  --                        Success err -> returnError OtherError --TODO
-  --                        Error e     -> returnError $ ParseError $ pack e
-  where responseOk    = inRange (200, 299) $ getStatusCode resp
-        unauthorized  = 401 == getStatusCode resp
-        alreadyExists = 422 == getStatusCode resp
-        maintenance   = 503 == getStatusCode resp
-        notFound      = 404 == getStatusCode resp
-        returnError   = return . Left
-        --TODO: catch goddamn ParseExceptions, make this less horrible
-
-coerceParsed :: Result a -> LibratoResponse a
-coerceParsed (Success a) = Right a
-coerceParsed (Error e)   = Left $ ParseError $ pack e
-
---TODO: pointfree, typesig
-parseJSONBody :: FromJSON a => S.InputStream ByteString -> IO (Result a)
-parseJSONBody stream = parseFromStream parser stream
-  where parser = fmap fromJSON json

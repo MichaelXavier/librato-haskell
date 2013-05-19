@@ -15,7 +15,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Network.Librato
                        Network.Librato.Types
-  -- other-modules:       
+  other-modules:       Network.Librato.REST
   build-depends:       base           == 4.6.*,
                        blaze-builder  == 0.*,
                        aeson          == 0.*,

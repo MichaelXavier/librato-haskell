@@ -58,7 +58,7 @@ spec = do
     it "renders the metrics in order under the gauges/counter keys" $
       Metrics [ defaultGauge
               , defaultCounter
-              , defaultCounter & metricName .~ "moar_app_requests" ] `shouldGenerateJSON`
+              , defaultCounter & metricName .~ MetricName "moar_app_requests" ] `shouldGenerateJSON`
         object [
                  "gauges" .=  [
                    object [
@@ -193,7 +193,7 @@ metricSummarizationString = [s|
 parsedMetricSummarization :: MetricSummarization
 parsedMetricSummarization = MetricSummarization {
   _summarizationMetric = Gauge {
-    _metricName        = "cpu_temp"
+    _metricName        = MetricName "cpu_temp"
   , _metricDisplayName = "cpu_temp"
   , _metricDescription = "Current CPU temperature in Fahrenheit"
   , _metricPeriod      = 60
@@ -298,7 +298,8 @@ paginatedMetricsResponse = PaginatedResponse meta [ defaultCounter
   where meta    = PaginationMeta 10 20 50
 
 defaultCounter :: Metric
-defaultCounter = Counter "app_requests" 60 "HTTP requests serviced by the app per-minute" "app_requests" (Just "app1")
+defaultCounter = Counter name 60 "HTTP requests serviced by the app per-minute" "app_requests" (Just "app1")
+  where name = MetricName "app_requests"
 
 
 defaultCounterString :: LBS.ByteString
@@ -323,7 +324,8 @@ defaultCounterString = [s|
 |]
 
 defaultGauge :: Metric
-defaultGauge = Gauge "cpu_temp" 60 "Current CPU temperature in Fahrenheit" "cpu_temp" (Just "app1")
+defaultGauge = Gauge name 60 "Current CPU temperature in Fahrenheit" "cpu_temp" (Just "app1")
+  where name = MetricName "cpu_temp"
 
 defaultGaugeString :: LBS.ByteString
 defaultGaugeString = [s|

@@ -132,9 +132,10 @@ deleteMetricNotFoundMocker = def & responder . fakedInteractions <>~ [emptyRespo
 
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
-deleteMetric' = runLibratoM testingConfig $ deleteMetric "somemetric"
+deleteMetric' = runLibratoM testingConfig $ deleteMetric $ MetricName "somemetric"
 
-deleteMetrics' = runLibratoM testingConfig $ deleteMetrics ["foo", "bar"]
+deleteMetrics' = runLibratoM testingConfig $ deleteMetrics [ MetricName "foo"
+                                                           , MetricName "bar"]
 
 getMetric' = runLibratoM testingConfig $ getMetric metricLookup 
   where metricLookup = MetricLookup "somemetric"
@@ -144,8 +145,10 @@ getMetric' = runLibratoM testingConfig $ getMetric metricLookup
                                     False
 
 createMetrics' = runLibratoM testingConfig $ createMetrics [gauge, counter]
-  where gauge   = Gauge "gauge_name" 20 "gauge description" "Example Gauge" (Just "app1")
-        counter = Counter "counter_name" 20 "counter description" "Example Gauge" (Just "app1")
+  where gauge       = Gauge gaugeName 20 "gauge description" "Example Gauge" (Just "app1")
+        gaugeName   = MetricName "gauge_name"
+        counter     = Counter counterName 20 "counter description" "Example Gauge" (Just "app1")
+        counterName = MetricName "counter_name"
 
 testingConfig = ClientConfiguration "127.0.0.1" 4568 "/v1" "librato test" False username token
 

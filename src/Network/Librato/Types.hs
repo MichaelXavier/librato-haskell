@@ -1,11 +1,12 @@
-{-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TupleSections          #-}
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE DeriveDataTypeable     #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE FunctionalDependencies     #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Librato.Types ( LibratoM
                              , Tag(..)
                              , HasTag(..)
@@ -13,6 +14,8 @@ module Network.Librato.Types ( LibratoM
                              , HasMetric(..)
                              , Metrics(..)
                              , HasMetrics(..)
+                             , MetricName(..)
+                             , unMetricName
                              , MetricNames(..)
                              , HasMetricNames(..)
                              , MetricLookup(..)
@@ -92,13 +95,17 @@ data Tag = Tag { _tagName :: Text } deriving (Show, Eq)
 
 makeClassy ''Tag
 
+newtype MetricName = MetricName { _unMetricName :: Text } deriving (Show, Eq, FromJSON, ToJSON)
+
+makeLenses ''MetricName
+
 --TODO: attributes
-data Metric = Counter { _metricName         :: Text
+data Metric = Counter { _metricName         :: MetricName
                       , _metricPeriod       :: Integer -- TODO: attributes?
                       , _metricDescription  :: Text
                       , _metricDisplayName  :: Text
                       , _metricSource       :: Maybe Text } | --am i conflating source with some other resource?
-              Gauge   { _metricName         :: Text
+              Gauge   { _metricName         :: MetricName
                       , _metricPeriod       :: Integer
                       , _metricDescription  :: Text
                       , _metricDisplayName  :: Text
@@ -306,7 +313,7 @@ instance FromJSON MetricSummarization where
                                                      <*> (H.toList <$> o .: "measurements")
 
 newtype MetricNames = MetricNames {
-  _unMetricNames :: [Text]
+  _unMetricNames :: [MetricName]
 } deriving (Show, Eq)
 
 makeClassy ''MetricNames
