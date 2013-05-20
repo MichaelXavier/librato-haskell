@@ -68,7 +68,7 @@ createMetric :: Metric -> LibratoM IO (LibratoResponse ())
 createMetric = createMetrics . singleton
 
 deleteMetrics :: [MetricName] -> LibratoM IO (LibratoResponse ())
-deleteMetrics = deleteResourceWithBody . MetricResource
+deleteMetrics = deleteResourceWithBody . MetricResource . MetricNames
 
 deleteMetric :: MetricName -> LibratoM IO (LibratoResponse ())
 deleteMetric = deleteResource . MetricResource
