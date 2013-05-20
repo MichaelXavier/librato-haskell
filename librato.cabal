@@ -29,7 +29,7 @@ library
                        lens           == 3.*,
                        classy-prelude == 0.*,
                        http-types,
-                       http-streams   >= 0.5.0.2 && < 1.0,
+                       http-streams   >= 0.6.0.1 && < 1.0,
                        transformers,
                        time           == 1.*,
                        unordered-containers
@@ -51,7 +51,7 @@ test-suite spec
                        hspec              == 1.*,
                        hspec-expectations == 0.*,
                        http-types         == 0.*,
-                       http-streams       >= 0.5.0.2 && < 1.0,
+                       http-streams       >= 0.6.0.1 && < 1.0,
                        io-streams         == 1.*,
                        rematch            == 0.*,
                        string-qq,
