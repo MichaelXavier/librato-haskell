@@ -9,10 +9,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Librato.Types ( LibratoM
                              , Tag(..)
+                             , HasTag(..)
+                             , TagName(..)
+                             , unTagname
+                             , TaggedEntity(..)
+                             , HasTaggedEntity(..)
+                             , TaggedEntityType(..)
                              , ID(..)
                              , Unit(..)
                              , HasID(..)
-                             , HasTag(..)
                              , Metric(..)
                              , HasMetric(..)
                              , Metrics(..)
@@ -124,7 +129,22 @@ makeClassy ''ID
 
 data Unit = Unit deriving (Show, Eq)
 
-data Tag = Tag { _tagName :: Text } deriving (Show, Eq)
+newtype TagName = TagName { _unTagName :: Text } deriving (Show, Eq)
+
+makeLenses ''TagName
+
+data TaggedEntityType = SourceEntityType |
+                        GaugeEntityType  |
+                        CounterEntityType deriving (Show, Eq)
+
+
+data TaggedEntity = TaggedEntity { _taggedEntityName :: Text
+                                 , _taggedEntityType :: TaggedEntityType } deriving (Show, Eq)
+
+makeClassy ''TaggedEntity
+
+data Tag = Tag { _tagName :: TagName
+               , _taggedEntities :: [TaggedEntity] } deriving (Show, Eq)
 
 makeClassy ''Tag
 
@@ -509,7 +529,7 @@ instance QueryLike MetricLookup where
 
 data MetricsSearch = MetricsSearch {
   _metricsNamed            :: Maybe Text -- case insensitive
-, _metricsSearchTags       :: [Tag]
+, _metricsSearchTags       :: [TagName]
 } deriving (Show, Eq)
 
 makeClassy ''MetricsSearch

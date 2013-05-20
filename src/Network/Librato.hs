@@ -183,6 +183,25 @@ deleteUser :: ID -> LibratoM IO (LibratoResponse ())
 deleteUser = deleteResource . UserResource
 
 -----------------------------
+-- Tags
+-----------------------------
+getAllTags :: PaginatedRequest () -> LibratoM IO (LibratoResponse [LTag])
+getAllTags = indexResourceAll . TagResource . unitRequest
+
+getTags :: PaginatedRequest () -> LibratoM IO (S.InputStream LTag)
+getTags = indexResourceStream . TagResource . unitRequest
+
+getTag :: TagName -> LibratoM IO (LibratoResponse LTag)
+getTag = showResource . TagResource
+
+--TODO: either pare down to a separate datatype with just one entity or make N requests for each tagging
+tagEntity :: Tag -> LibratoM IO (LibratoResponse ())
+tagEntity = createResource . TagResource
+
+deleteTag :: TagName -> LibratoM IO (LibratoResponse ())
+deleteTag = deleteResource . TagResource
+
+-----------------------------
 -- LibratoM tools
 -----------------------------
 runLibratoM :: Monad m => ClientConfiguration -> LibratoM m a -> m a
