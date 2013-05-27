@@ -352,4 +352,4 @@ paginatedMetricsSearch :: PaginatedRequest MetricsSearch
 paginatedMetricsSearch = PaginatedRequest defaultPagination defaultMetricsSearch
 
 defaultMetricsSearch :: MetricsSearch
-defaultMetricsSearch = MetricsSearch (Just "foo") [Tag "bar"]
+defaultMetricsSearch = MetricsSearch (Just "foo") [TagName "bar"]

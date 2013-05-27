@@ -11,7 +11,7 @@ module Network.Librato.Types ( LibratoM
                              , Tag(..)
                              , HasTag(..)
                              , TagName(..)
-                             , unTagname
+                             , unTagName
                              , TaggedEntity(..)
                              , HasTaggedEntity(..)
                              , TaggedEntityType(..)
@@ -129,7 +129,7 @@ makeClassy ''ID
 
 data Unit = Unit deriving (Show, Eq)
 
-newtype TagName = TagName { _unTagName :: Text } deriving (Show, Eq)
+newtype TagName = TagName { _unTagName :: Text } deriving (Show, Eq, FromJSON, ToJSON)
 
 makeLenses ''TagName
 
@@ -137,16 +137,43 @@ data TaggedEntityType = SourceEntityType |
                         GaugeEntityType  |
                         CounterEntityType deriving (Show, Eq)
 
+instance FromJSON TaggedEntityType where
+  parseJSON = withText "TaggedEntityType" parseTaggedEntityType
+    where parseTaggedEntityType "source"  = pure SourceEntityType
+          parseTaggedEntityType "gauge"   = pure GaugeEntityType
+          parseTaggedEntityType "counter" = pure CounterEntityType
+          parseTaggedEntityType t         = fail $ "unknown tagged entity type " <> unpack t
+
+instance ToJSON TaggedEntityType where
+  toJSON SourceEntityType  = String "source"
+  toJSON GaugeEntityType   = String "gauge"
+  toJSON CounterEntityType = String "counter"
 
 data TaggedEntity = TaggedEntity { _taggedEntityName :: Text
                                  , _taggedEntityType :: TaggedEntityType } deriving (Show, Eq)
 
 makeClassy ''TaggedEntity
 
+
+instance FromJSON TaggedEntity where
+  parseJSON = withObject "TaggedEntity" parseTaggedEntity
+    where parseTaggedEntity obj = TaggedEntity <$> obj .: "entity_name"
+                                               <*> obj .: "entity_type"
+
+instance ToJSON TaggedEntity where
+  toJSON te = object [ "entity_name" .= (te ^. taggedEntityName)
+                     , "entity_type" .= (te ^. taggedEntityType) ]
+
 data Tag = Tag { _tagName :: TagName
                , _taggedEntities :: [TaggedEntity] } deriving (Show, Eq)
 
 makeClassy ''Tag
+
+instance FromJSON Tag where
+  parseJSON = withObject "Tag" parseTag
+    where parseTag obj = Tag <$> obj .: "name"
+                             <*> (obj .: "tags" <|> parseOneEntityType obj)
+          parseOneEntityType = fmap return . parseJSON .  Object
 
 newtype MetricName = MetricName { _unMetricName :: Text } deriving (Show, Eq, FromJSON, ToJSON)
 
@@ -472,13 +499,16 @@ instance FromJSON (PaginatedResponse LInstrument) where
   parseJSON = parsePaginatedResponse "Instrument" "instruments" -- probably
 
 instance FromJSON (PaginatedResponse LService) where
-  parseJSON = parsePaginatedResponse "Service" "service" -- probably
+  parseJSON = parsePaginatedResponse "Service" "services" -- probably
 
 instance FromJSON (PaginatedResponse LChartToken) where
-  parseJSON = parsePaginatedResponse "ChartToken" "chart_token" -- probably
+  parseJSON = parsePaginatedResponse "ChartToken" "chart_tokens" -- probably
 
 instance FromJSON (PaginatedResponse LUser) where
-  parseJSON = parsePaginatedResponse "User" "user" -- probably
+  parseJSON = parsePaginatedResponse "User" "users" -- probably
+
+instance FromJSON (PaginatedResponse Tag) where
+  parseJSON = parsePaginatedResponse "Tag" "tags" -- probably
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"
@@ -541,7 +571,7 @@ instance QueryLike MetricsSearch where
   toQuery ms = tagQueries ++ maybeToList nameQuery
     where nameQuery       = ("name", ) . Just . encodeUtf8 <$> ms ^. metricsNamed
           tagQueries      = map toTagQuery $ ms ^. metricsSearchTags
-          toTagQuery      = ("tags[]",) . Just . encodeUtf8 . _tagName
+          toTagQuery      = ("tags[]",) . Just . encodeUtf8 . view unTagName
 
 
 newtype Metrics = Metrics { _unMetrics :: [Metric] } deriving (Show, Eq)

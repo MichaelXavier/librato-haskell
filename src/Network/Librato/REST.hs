@@ -16,6 +16,7 @@ module Network.Librato.REST ( indexResourceAll
                             , ServiceResource(..)
                             , ChartTokenResource(..)
                             , UserResource(..)
+                            , TagResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -163,13 +164,35 @@ newtype UserResource a = UserResource { _userResourcePayload :: a }
 makeClassy ''UserResource
 
 instance NamedResource (UserResource a) where
-  resourceName = const "chart_tokens"
+  resourceName = const "users"
 
 instance PayloadResource (UserResource a) a where
   resourcePayload = userResourcePayload
 
 instance PayloadWithID LUser where
   payloadID = payloadID . view userID
+
+-------------------------------
+-- Tag
+-------------------------------
+newtype TagResource a = TagResource { _tagResourcePayload :: a }
+
+makeClassy ''TagResource
+
+instance NamedResource (TagResource a) where
+  resourceName = const "tags"
+
+instance PayloadResource (TagResource a) a where
+  resourcePayload = tagResourcePayload
+
+instance PayloadWithID Tag where
+  payloadID = payloadID . view tagName
+
+instance PayloadWithID TagName where
+  payloadID = encodeUtf8 . view (unTagName)
+
+instance QueryLike TagName where
+  toQuery = const []
 
 -------------------------------
 -- Generally applicable instances

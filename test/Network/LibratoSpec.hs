@@ -161,10 +161,10 @@ defaultMetricsSearch = def
 
 fullMetricsSearch :: MetricsSearch
 fullMetricsSearch = def & metricsNamed .~ (Just "foo")
-                        & metricsSearchTags .~ [tag1, tag2]
+                        & metricsSearchTags .~ [tagname1, tagname2]
 
-tag1 :: Tag
-tag1 = Tag "tagone"
+tagname1 :: TagName
+tagname1 = TagName "tagone"
 
-tag2 :: Tag
-tag2 = Tag "tagtwo"
+tagname2 :: TagName
+tagname2 = TagName "tagtwo"
