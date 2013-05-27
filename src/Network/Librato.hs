@@ -43,6 +43,14 @@ module Network.Librato ( getMetrics
                        , getTag
                        , tagEntity
                        , deleteTag
+                       , getAllAlerts
+                       , getAlerts
+                       , getAlert
+                       , createAlert
+                       , updateAlert
+                       , deleteAlert
+                       , associateServiceWithAlert
+                       , disassociateServiceWithAlert
                        , module Network.Librato.Types) where
 
 
@@ -204,6 +212,33 @@ tagEntity = curry (createResource . TagResource)
 
 deleteTag :: TagName -> LibratoM IO (LibratoResponse ())
 deleteTag = deleteResource . TagResource
+
+-----------------------------
+-- Alerts
+-----------------------------
+getAllAlerts :: PaginatedRequest AlertSearch -> LibratoM IO (LibratoResponse [LAlert])
+getAllAlerts = indexResourceAll . AlertResource
+
+getAlerts :: PaginatedRequest AlertSearch -> LibratoM IO (S.InputStream LAlert)
+getAlerts = indexResourceStream . AlertResource
+
+getAlert :: ID -> LibratoM IO (LibratoResponse LAlert)
+getAlert = showResource . AlertResource
+
+createAlert :: NewAlert -> LibratoM IO (LibratoResponse ())
+createAlert = createResource . AlertResource
+
+updateAlert :: LAlert -> LibratoM IO (LibratoResponse ())
+updateAlert = updateResource . AlertResource
+
+deleteAlert :: ID -> LibratoM IO (LibratoResponse ())
+deleteAlert = deleteResource . AlertResource
+
+associateServiceWithAlert :: AlertServiceAssociation -> LibratoM IO (LibratoResponse ())
+associateServiceWithAlert = createResource . ASAResource
+
+disassociateServiceWithAlert :: AlertServiceAssociation -> LibratoM IO (LibratoResponse ())
+disassociateServiceWithAlert = deleteResource . ASAResource
 
 -----------------------------
 -- LibratoM tools

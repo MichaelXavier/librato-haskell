@@ -17,6 +17,8 @@ module Network.Librato.REST ( indexResourceAll
                             , ChartTokenResource(..)
                             , UserResource(..)
                             , TagResource(..)
+                            , AlertResource(..)
+                            , ASAResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -193,6 +195,44 @@ instance PayloadWithID TagName where
 
 instance QueryLike TagName where
   toQuery = const []
+
+-------------------------------
+-- Alert
+-------------------------------
+newtype AlertResource a = AlertResource { _alertResourcePayload :: a }
+
+makeClassy ''AlertResource
+
+instance NamedResource (AlertResource a) where
+  resourceName = const "alerts"
+
+instance PayloadResource (AlertResource a) a where
+  resourcePayload = alertResourcePayload
+
+instance PayloadWithID LAlert where
+  payloadID = payloadID . view alertID
+
+instance QueryLike AlertSearch where
+  toQuery as = [ ("entity_type", Just etype)
+               , ("entity_name", Just ename)]
+    where etype = as ^. (alertSearchEntityType . to enameStr)
+          ename = as ^. (alertSearchEntityName . to encodeUtf8)
+          enameStr GaugeAlertEntityType   = "alert"
+          enameStr CounterAlertEntityType = "counter"
+
+newtype ASAResource = ASAResource { _asaResourcePayload :: AlertServiceAssociation }
+
+makeClassy ''ASAResource
+
+instance NamedResource ASAResource where
+  resourceName (ASAResource assoc) = "alerts/" <> aid <> "/services"
+    where aid = assoc ^. associatedAlertID . unID . to encodeUtf8
+
+instance PayloadResource ASAResource AlertServiceAssociation where
+  resourcePayload = asaResourcePayload
+
+instance PayloadWithID AlertServiceAssociation where
+  payloadID asa = asa ^. associatedServiceID . unID . to encodeUtf8
 
 -------------------------------
 -- Generally applicable instances
@@ -438,9 +478,9 @@ coerceParsed :: Result a -> LibratoResponse a
 coerceParsed (Success a) = Right a
 coerceParsed (Error e)   = Left $ ParseError $ pack e
 
---TODO: pointfree, typesig
+--TODO: pointfree
 parseJSONBody :: FromJSON a => S.InputStream ByteString -> IO (Result a)
-parseJSONBody stream = parseFromStream parser stream
+parseJSONBody = parseFromStream parser
   where parser = fmap fromJSON json
 
 withLibratoConnection :: ClientConfiguration -> (Connection -> IO a) -> IO a

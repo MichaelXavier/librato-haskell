@@ -8,6 +8,7 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Network.Librato.Types ( LibratoM
+                             , MeasurementValue
                              , Tag(..)
                              , HasTag(..)
                              , TagName(..)
@@ -70,6 +71,15 @@ module Network.Librato.Types ( LibratoM
                              , HasUser(..)
                              , NewUser(..)
                              , LUser(..)
+                             , AlertEntityType(..)
+                             , Alert(..)
+                             , HasAlert(..)
+                             , NewAlert(..)
+                             , LAlert(..)
+                             , AlertServiceAssociation(..)
+                             , HasAlertServiceAssociation(..)
+                             , AlertSearch(..)
+                             , HasAlertSearch(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -98,6 +108,8 @@ version :: ByteString
 version = "0.0.0"
 
 type LibratoM m a = ReaderT ClientConfiguration m a
+
+type MeasurementValue = Double
 
 data ClientConfiguration = ClientConfiguration { _apiHostname  :: Hostname
                                                , _apiPort      :: Port
@@ -133,21 +145,21 @@ newtype TagName = TagName { _unTagName :: Text } deriving (Show, Eq, FromJSON, T
 
 makeLenses ''TagName
 
-data TaggedEntityType = SourceEntityType |
-                        GaugeEntityType  |
-                        CounterEntityType deriving (Show, Eq)
+data TaggedEntityType = SourceTaggedEntityType |
+                        GaugeTaggedEntityType  |
+                        CounterTaggedEntityType deriving (Show, Eq)
 
 instance FromJSON TaggedEntityType where
   parseJSON = withText "TaggedEntityType" parseTaggedEntityType
-    where parseTaggedEntityType "source"  = pure SourceEntityType
-          parseTaggedEntityType "gauge"   = pure GaugeEntityType
-          parseTaggedEntityType "counter" = pure CounterEntityType
+    where parseTaggedEntityType "source"  = pure SourceTaggedEntityType
+          parseTaggedEntityType "gauge"   = pure GaugeTaggedEntityType
+          parseTaggedEntityType "counter" = pure CounterTaggedEntityType
           parseTaggedEntityType t         = fail $ "unknown tagged entity type " <> unpack t
 
 instance ToJSON TaggedEntityType where
-  toJSON SourceEntityType  = String "source"
-  toJSON GaugeEntityType   = String "gauge"
-  toJSON CounterEntityType = String "counter"
+  toJSON SourceTaggedEntityType  = String "source"
+  toJSON GaugeTaggedEntityType   = String "gauge"
+  toJSON CounterTaggedEntityType = String "counter"
 
 data TaggedEntity = TaggedEntity { _taggedEntityName :: Text
                                  , _taggedEntityType :: TaggedEntityType } deriving (Show, Eq)
@@ -428,6 +440,54 @@ instance (ToJSON i, ToJSON p) => ToJSON (User i p t) where
                       , "company"   .= (obj ^. userCompany)
                       , "time_zone" .= (obj ^. userTimeZone) ]
 
+data AlertEntityType = GaugeAlertEntityType  |
+                       CounterAlertEntityType deriving (Show, Eq)
+
+instance FromJSON AlertEntityType where
+  parseJSON = withText "AlertEntityType" parseAlertEntityType
+    where parseAlertEntityType "gauge"   = pure GaugeAlertEntityType
+          parseAlertEntityType "counter" = pure CounterAlertEntityType
+          parseAlertEntityType t         = fail $ "unknown tagged entity type " <> unpack t
+
+instance ToJSON AlertEntityType where
+  toJSON GaugeAlertEntityType   = String "gauge"
+  toJSON CounterAlertEntityType = String "counter"
+
+data Alert i = Alert { _alertID :: i
+                     , _alertEntityType       :: AlertEntityType
+                     , _alertEntityName       :: Text
+                     , _alertThreshAboveValue :: MeasurementValue
+                     , _alertThreshBelowValue :: MeasurementValue
+                     , _alertServiceIDs       :: [ID] -- not sure if empty list is allowed
+                     , _alertName             :: Text
+                     , _alertActive           :: Bool } deriving (Show, Eq)
+
+makeClassy ''Alert
+
+type NewAlert = Alert ()
+type LAlert   = Alert ID
+
+instance FromJSON LAlert where
+  parseJSON = withObject "LAlert" parseAlert
+    where parseAlert obj = Alert <$> obj .: "id"
+                                 <*> obj .: "entity_type"
+                                 <*> obj .: "entity_name"
+                                 <*> obj .: "thresh_above_value"
+                                 <*> obj .: "thresh_below_value"
+                                 <*> obj .: "services" --TODO: or reach into it for the id attribute
+                                 <*> obj .: "name"
+                                 <*> obj .: "active"
+
+instance ToJSON a => ToJSON (Alert a) where
+  toJSON a = object [ "id"                 .= (a ^. alertID)
+                    , "entity_type"        .= (a ^. alertEntityType)
+                    , "entity_name"        .= (a ^. alertEntityName)
+                    , "thresh_above_value" .= (a ^. alertThreshAboveValue)
+                    , "thresh_below_value" .= (a ^. alertThreshBelowValue)
+                    , "services"           .= (a ^. alertServiceIDs)
+                    , "name"               .= (a ^. alertName)
+                    , "active"             .= (a ^. alertActive) ]
+
 type LibratoResponse a = Either ErrorDetail a
 
 data ErrorDetail = ParseError Text               |
@@ -509,6 +569,9 @@ instance FromJSON (PaginatedResponse LUser) where
 
 instance FromJSON (PaginatedResponse Tag) where
   parseJSON = parsePaginatedResponse "Tag" "tags" -- probably
+
+instance FromJSON (PaginatedResponse LAlert) where
+  parseJSON = parsePaginatedResponse "Alert" "alerts" -- probably
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"
@@ -592,7 +655,7 @@ instance ToJSON Metrics where
 
 data Measurement = Measurement {
   _measurementTime  :: POSIXTime --TODO: should I use UTCTime instead?
-, _measurementValue :: Double -- is double the correct type?
+, _measurementValue :: MeasurementValue -- is double the correct type?
 , _measurementCount :: Int
 } deriving (Show, Eq) --TODO
 
@@ -629,3 +692,18 @@ makeClassy ''MetricNames
 
 instance ToJSON MetricNames where
   toJSON names = object ["names" .= (names ^. unMetricNames)]
+
+data AlertServiceAssociation = AlertServiceAssociation {
+  _associatedAlertID   :: ID
+, _associatedServiceID :: ID
+} deriving (Show, Eq)
+
+makeClassy ''AlertServiceAssociation
+
+instance ToJSON AlertServiceAssociation where
+  toJSON = const $ object []
+
+data AlertSearch = AlertSearch { _alertSearchEntityType :: AlertEntityType 
+                               , _alertSearchEntityName :: Text } deriving (Show, Eq)
+
+makeClassy ''AlertSearch
