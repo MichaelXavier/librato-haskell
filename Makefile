@@ -36,3 +36,6 @@ docs:
 clean:
 	$(CABAL) clean
 	rm -f **/*.{o,hi} **/**/*.{o,hi}
+
+tags: src/**/*.hs
+	hasktags -c -o tags src
