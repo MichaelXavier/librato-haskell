@@ -1,7 +1,7 @@
 CABAL=cabal
 EXPORTS=PATH=$$PATH:cabal-dev/bin
 CONFIG_OPTS=
-.PHONY: test
+.PHONY: test, tag_watcher
 
 all: build
 
@@ -39,3 +39,6 @@ clean:
 
 tags: src/**/*.hs
 	hasktags -c -o tags src
+
+tags_inotify:
+	while true; do inotifywait src/**/*.hs -e modify -q; make tags; done

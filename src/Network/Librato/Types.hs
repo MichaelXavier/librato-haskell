@@ -80,6 +80,14 @@ module Network.Librato.Types ( LibratoM
                              , HasAlertServiceAssociation(..)
                              , AlertSearch(..)
                              , HasAlertSearch(..)
+                             , AnnotationEvent(..)
+                             , HasAnnotationEvent(..)
+                             , LAnnotationEvent(..)
+                             , NewAnnotationEvent(..)
+                             , ASName(..)
+                             , HasASName(..)
+                             , AnnotationStream(..)
+                             , HasAnnotationStream(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -487,6 +495,29 @@ instance ToJSON a => ToJSON (Alert a) where
                     , "services"           .= (a ^. alertServiceIDs)
                     , "name"               .= (a ^. alertName)
                     , "active"             .= (a ^. alertActive) ]
+
+data AnnotationEvent i = AnnotationEvent { _annotationEventID          :: i 
+                                         , _annotationEventTitle       :: Text
+                                         , _annotationEventSource      :: Text
+                                         , _annotationEventDescription :: Text
+                                         , _annotationEventLinks       :: [Text]
+                                         -- should this be UTCTime and have me do the coversion?
+                                         , _annotationEventStartTime   :: POSIXTime
+                                         , _annotationEventEndTime     :: POSIXTime } deriving (Show, Eq)
+
+makeClassy ''AnnotationEvent
+
+newtype ASName = ASName { _unASName :: Text } deriving (Show, Eq)
+
+makeClassy ''ASName
+
+type NewAnnotationEvent = AnnotationEvent ()
+type LAnnotationEvent   = AnnotationEvent ID
+
+data AnnotationStream = AnnotationStream { _annotationStreamName :: ASName
+                                         , _annotationStreamDisplayname :: Text } deriving (Show, Eq)
+
+makeClassy ''AnnotationStream
 
 type LibratoResponse a = Either ErrorDetail a
 

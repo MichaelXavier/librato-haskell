@@ -51,6 +51,18 @@ module Network.Librato ( getMetrics
                        , deleteAlert
                        , associateServiceWithAlert
                        , disassociateServiceWithAlert
+                       , getAllAnnotationStreams
+                       , getAnnotationStreams
+                       , getAnnotationStream
+                       , createAnnotationStream
+                       , updateAnnotationStream
+                       , deleteAnnotationStream
+                       , getAllAnnotationEvents
+                       , getAnnotationEvents
+                       , getAnnotationEvent
+                       , createAnnotationEvent
+                       , updateAnnotationEvent
+                       , deleteAnnotationEvent
                        , module Network.Librato.Types) where
 
 
@@ -239,6 +251,50 @@ associateServiceWithAlert = createResource . ASAResource
 
 disassociateServiceWithAlert :: AlertServiceAssociation -> LibratoM IO (LibratoResponse ())
 disassociateServiceWithAlert = deleteResource . ASAResource
+
+-----------------------------
+-- AnnotationStreams
+-----------------------------
+--TODO: ordering by name in pagination
+getAllAnnotationStreams :: PaginatedRequest () -> LibratoM IO (LibratoResponse [AnnotationStream])
+getAllAnnotationStreams = undefined
+
+getAnnotationStreams :: PaginatedRequest () -> LibratoM IO (S.InputStream AnnotationStream)
+getAnnotationStreams = undefined
+
+getAnnotationStream :: ASName -> LibratoM IO (LibratoResponse AnnotationStream)
+getAnnotationStream name = undefined
+
+createAnnotationStream :: AnnotationStream -> LibratoM IO (LibratoResponse ())
+createAnnotationStream = undefined
+
+updateAnnotationStream :: AnnotationStream -> LibratoM IO (LibratoResponse ())
+updateAnnotationStream = undefined
+
+deleteAnnotationStream :: ASName -> LibratoM IO (LibratoResponse ())
+deleteAnnotationStream name = undefined
+
+-----------------------------
+-- AnnotationEvents
+-----------------------------
+--TODO: ordering by name in pagination
+getAllAnnotationEvents :: PaginatedRequest ASName -> LibratoM IO (LibratoResponse [LAnnotationEvent])
+getAllAnnotationEvents = undefined
+
+getAnnotationEvents :: PaginatedRequest ASName -> LibratoM IO (S.InputStream LAnnotationEvent)
+getAnnotationEvents = undefined
+
+getAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse LAnnotationEvent)
+getAnnotationEvent name eid = undefined
+
+createAnnotationEvent :: ASName -> NewAnnotationEvent -> LibratoM IO (LibratoResponse ())
+createAnnotationEvent = undefined
+
+updateAnnotationEvent :: ASName -> LAnnotationEvent -> LibratoM IO (LibratoResponse ())
+updateAnnotationEvent = undefined
+
+deleteAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse ())
+deleteAnnotationEvent name = undefined
 
 -----------------------------
 -- LibratoM tools
