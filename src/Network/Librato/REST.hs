@@ -19,6 +19,7 @@ module Network.Librato.REST ( indexResourceAll
                             , TagResource(..)
                             , AlertResource(..)
                             , ASAResource(..)
+                            , AnnotationStreamResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -191,7 +192,7 @@ instance PayloadWithID Tag where
   payloadID = payloadID . view tagName
 
 instance PayloadWithID TagName where
-  payloadID = encodeUtf8 . view (unTagName)
+  payloadID = encodeUtf8 . view unTagName
 
 instance QueryLike TagName where
   toQuery = const []
@@ -233,6 +234,22 @@ instance PayloadResource ASAResource AlertServiceAssociation where
 
 instance PayloadWithID AlertServiceAssociation where
   payloadID asa = asa ^. associatedServiceID . unID . to encodeUtf8
+
+-------------------------------
+-- AnnotationStream
+-------------------------------
+newtype AnnotationStreamResource a = AnnotationStreamResource { _annotationStreamResourcePayload :: a }
+
+makeClassy ''AnnotationStreamResource
+
+instance NamedResource (AnnotationStreamResource a) where
+  resourceName = const "annotations"
+
+instance PayloadResource (AnnotationStreamResource a) a where
+  resourcePayload = annotationStreamResourcePayload
+
+instance PayloadWithID AnnotationStream where
+  payloadID stream = stream ^. annotationStreamName . unASName . to encodeUtf8
 
 -------------------------------
 -- Generally applicable instances

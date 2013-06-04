@@ -507,7 +507,7 @@ data AnnotationEvent i = AnnotationEvent { _annotationEventID          :: i
 
 makeClassy ''AnnotationEvent
 
-newtype ASName = ASName { _unASName :: Text } deriving (Show, Eq)
+newtype ASName = ASName { _unASName :: Text } deriving (Show, Eq, FromJSON, ToJSON)
 
 makeClassy ''ASName
 
@@ -515,9 +515,17 @@ type NewAnnotationEvent = AnnotationEvent ()
 type LAnnotationEvent   = AnnotationEvent ID
 
 data AnnotationStream = AnnotationStream { _annotationStreamName :: ASName
-                                         , _annotationStreamDisplayname :: Text } deriving (Show, Eq)
+                                         , _annotationStreamDisplayName :: Text } deriving (Show, Eq)
 
 makeClassy ''AnnotationStream
+
+instance FromJSON AnnotationStream where
+  parseJSON = withObject "AnnotationStream" parseAnnotationStream
+    where parseAnnotationStream obj = AnnotationStream <$> obj .: "name"
+                                                       <*> obj .: "display_name"
+instance ToJSON AnnotationStream where
+  toJSON stream = object [ "name"         .= (stream ^. annotationStreamName)
+                         , "display_name" .= (stream ^. annotationStreamDisplayName) ]
 
 type LibratoResponse a = Either ErrorDetail a
 
@@ -603,6 +611,9 @@ instance FromJSON (PaginatedResponse Tag) where
 
 instance FromJSON (PaginatedResponse LAlert) where
   parseJSON = parsePaginatedResponse "Alert" "alerts" -- probably
+
+instance FromJSON (PaginatedResponse AnnotationStream) where
+  parseJSON = parsePaginatedResponse "AnnotationStream" "annotations"
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"

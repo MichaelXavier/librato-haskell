@@ -257,22 +257,22 @@ disassociateServiceWithAlert = deleteResource . ASAResource
 -----------------------------
 --TODO: ordering by name in pagination
 getAllAnnotationStreams :: PaginatedRequest () -> LibratoM IO (LibratoResponse [AnnotationStream])
-getAllAnnotationStreams = undefined
+getAllAnnotationStreams = indexResourceAll . AnnotationStreamResource
 
 getAnnotationStreams :: PaginatedRequest () -> LibratoM IO (S.InputStream AnnotationStream)
-getAnnotationStreams = undefined
+getAnnotationStreams = indexResourceStream . AnnotationStreamResource
 
 getAnnotationStream :: ASName -> LibratoM IO (LibratoResponse AnnotationStream)
-getAnnotationStream name = undefined
+getAnnotationStream = showResource . AnnotationStreamResource
 
 createAnnotationStream :: AnnotationStream -> LibratoM IO (LibratoResponse ())
-createAnnotationStream = undefined
+createAnnotationStream = createResource . AnnotationStreamResource
 
 updateAnnotationStream :: AnnotationStream -> LibratoM IO (LibratoResponse ())
-updateAnnotationStream = undefined
+updateAnnotationStream = updateResource . AnnotationStreamResource
 
 deleteAnnotationStream :: ASName -> LibratoM IO (LibratoResponse ())
-deleteAnnotationStream name = undefined
+deleteAnnotationStream = deleteResource . AnnotationStreamResource
 
 -----------------------------
 -- AnnotationEvents
