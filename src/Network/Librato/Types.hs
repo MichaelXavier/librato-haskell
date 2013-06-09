@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+--TODO: pervasive Maybe
 module Network.Librato.Types ( LibratoM
                              , MeasurementValue
                              , Tag(..)
@@ -97,6 +98,7 @@ import Control.Monad.Trans.Reader (ReaderT)
 import Data.Aeson ( FromJSON(..)
                   , withObject
                   , withText
+                  , withNumber
                   , Object
                   , Value(..)
                   , ToJSON(..)
@@ -105,6 +107,7 @@ import Data.Aeson ( FromJSON(..)
                   , (.=)
                   , (.:))
 import Data.Aeson.Types (Parser)
+import qualified Data.Attoparsec.Number as N
 import qualified Data.HashMap.Strict as H
 import Data.Default
 import Data.Time.Clock.POSIX (POSIXTime(..))
@@ -498,12 +501,12 @@ instance ToJSON a => ToJSON (Alert a) where
 
 data AnnotationEvent i = AnnotationEvent { _annotationEventID          :: i 
                                          , _annotationEventTitle       :: Text
-                                         , _annotationEventSource      :: Text
-                                         , _annotationEventDescription :: Text
+                                         , _annotationEventSource      :: Maybe Text
+                                         , _annotationEventDescription :: Maybe Text
                                          , _annotationEventLinks       :: [Text]
                                          -- should this be UTCTime and have me do the coversion?
                                          , _annotationEventStartTime   :: POSIXTime
-                                         , _annotationEventEndTime     :: POSIXTime } deriving (Show, Eq)
+                                         , _annotationEventEndTime     :: Maybe POSIXTime } deriving (Show, Eq)
 
 makeClassy ''AnnotationEvent
 
@@ -513,6 +516,35 @@ makeClassy ''ASName
 
 type NewAnnotationEvent = AnnotationEvent ()
 type LAnnotationEvent   = AnnotationEvent ID
+
+newtype POSIXWrapper = POSIXWrapper { unPOSIXWrapper :: POSIXTime }
+
+instance FromJSON POSIXWrapper where
+  parseJSON = withNumber "POSIXTime" parsePOSIXTime
+    where parsePOSIXTime (N.I i) = pure . POSIXWrapper . fromIntegral $ i
+          parsePOSIXTime _       = fail "Expected integer"
+
+instance ToJSON POSIXWrapper where
+  toJSON = Number . N.I . truncate . toRational . unPOSIXWrapper
+
+instance FromJSON LAnnotationEvent where
+  parseJSON = withObject "AnnotationEvent" parseAnnotationEvent
+    where parseAnnotationEvent obj = AnnotationEvent <$> (obj .: "id") --DANGER: i think they send a number
+                                                     <*> obj .: "title"
+                                                     <*> obj .: "source"
+                                                     <*> obj .: "description"
+                                                     <*> obj .: "links"
+                                                     <*> (unPOSIXWrapper <$> obj .: "start_time")
+                                                     <*> (fmap unPOSIXWrapper <$> obj .: "end_time")
+
+instance ToJSON i => ToJSON (AnnotationEvent i) where
+  toJSON aevent = object [ "id"          .= (aevent ^. annotationEventID)
+                         , "title"       .= (aevent ^. annotationEventTitle)
+                         , "source"      .= (aevent ^. annotationEventSource)
+                         , "description" .= (aevent ^. annotationEventDescription)
+                         , "links"       .= (aevent ^. annotationEventLinks)
+                         , "start_time"  .= (aevent ^. annotationEventStartTime . to POSIXWrapper)
+                         , "end_time"    .= (aevent ^. annotationEventEndTime. to (fmap POSIXWrapper)) ]
 
 data AnnotationStream = AnnotationStream { _annotationStreamName :: ASName
                                          , _annotationStreamDisplayName :: Text } deriving (Show, Eq)
@@ -614,6 +646,9 @@ instance FromJSON (PaginatedResponse LAlert) where
 
 instance FromJSON (PaginatedResponse AnnotationStream) where
   parseJSON = parsePaginatedResponse "AnnotationStream" "annotations"
+
+instance FromJSON (PaginatedResponse LAnnotationEvent) where
+  parseJSON = parsePaginatedResponse "AnnotationEvent" "events"
 
 parsePaginatedResponse typeName payloadKey = withObject typeName parseResponse
   where parseResponse obj = PaginatedResponse <$> obj .: "query"

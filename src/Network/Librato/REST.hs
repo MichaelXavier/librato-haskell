@@ -20,6 +20,7 @@ module Network.Librato.REST ( indexResourceAll
                             , AlertResource(..)
                             , ASAResource(..)
                             , AnnotationStreamResource(..)
+                            , AnnotationEventResource(..)
                             , DashboardResource(..)) where
 
 import ClassyPrelude
@@ -250,6 +251,40 @@ instance PayloadResource (AnnotationStreamResource a) a where
 
 instance PayloadWithID AnnotationStream where
   payloadID stream = stream ^. annotationStreamName . unASName . to encodeUtf8
+
+instance QueryLike ASName where
+  toQuery = const []
+
+instance PayloadWithID ASName where
+  payloadID = view (unASName . to encodeUtf8)
+
+-------------------------------
+-- AnnotationEvent
+-------------------------------
+newtype AnnotationEventResource a = AnnotationEventResource { _annotationEventResourcePayload :: a }
+
+makeClassy ''AnnotationEventResource
+
+--necessary?
+instance NamedResource (AnnotationEventResource (PaginatedRequest ASName)) where
+  resourceName (AnnotationEventResource req) = "annotations/" <> asname
+    where asname = req ^. requestQuery . unASName . to encodeUtf8
+
+instance NamedResource (AnnotationEventResource (ASName, a)) where
+  resourceName (AnnotationEventResource (asname, _)) = "annotations/" <> asname'
+    where asname' = asname ^. unASName . to encodeUtf8
+
+instance PayloadResource (AnnotationEventResource a) a where
+  resourcePayload = annotationEventResourcePayload
+
+instance QueryLike (ASName, ID) where
+  toQuery = const []
+
+instance PayloadWithID (ASName, ID) where
+  payloadID (_, ID { _unID = eid }) = encodeUtf8 eid
+
+instance PayloadWithID (ASName, LAnnotationEvent) where
+  payloadID (_, aevent) = aevent ^. annotationEventID . unID . to encodeUtf8
 
 -------------------------------
 -- Generally applicable instances

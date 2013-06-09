@@ -19,6 +19,7 @@ library
   build-depends:       base           == 4.6.*,
                        blaze-builder  == 0.*,
                        aeson          == 0.*,
+                       attoparsec     == 0.*,
                        bytestring,
                        data-default,
                        http-types     == 0.*,

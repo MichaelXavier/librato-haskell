@@ -279,22 +279,25 @@ deleteAnnotationStream = deleteResource . AnnotationStreamResource
 -----------------------------
 --TODO: ordering by name in pagination
 getAllAnnotationEvents :: PaginatedRequest ASName -> LibratoM IO (LibratoResponse [LAnnotationEvent])
-getAllAnnotationEvents = undefined
+getAllAnnotationEvents = indexResourceAll . AnnotationEventResource
 
 getAnnotationEvents :: PaginatedRequest ASName -> LibratoM IO (S.InputStream LAnnotationEvent)
-getAnnotationEvents = undefined
+getAnnotationEvents = indexResourceStream . AnnotationEventResource
 
 getAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse LAnnotationEvent)
-getAnnotationEvent name eid = undefined
+getAnnotationEvent = curry (showResource . AnnotationEventResource)
 
 createAnnotationEvent :: ASName -> NewAnnotationEvent -> LibratoM IO (LibratoResponse ())
-createAnnotationEvent = undefined
+createAnnotationEvent = curry (createResource . AnnotationEventResource)
 
 updateAnnotationEvent :: ASName -> LAnnotationEvent -> LibratoM IO (LibratoResponse ())
-updateAnnotationEvent = undefined
+updateAnnotationEvent = curry (updateResource . AnnotationEventResource)
 
 deleteAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse ())
-deleteAnnotationEvent name = undefined
+deleteAnnotationEvent = curry (deleteResource . AnnotationEventResource)
+
+addLinkToAnnotationEvent    = undefined
+removeLinkToAnnotationEvent = undefined
 
 -----------------------------
 -- LibratoM tools
