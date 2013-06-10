@@ -106,7 +106,8 @@ import Data.Aeson ( FromJSON(..)
                   , (.:?)
                   , (.=)
                   , (.:))
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types ( Parser
+                        , typeMismatch)
 import qualified Data.Attoparsec.Number as N
 import qualified Data.HashMap.Strict as H
 import Data.Default
@@ -146,9 +147,14 @@ makeClassy ''PaginationOptions
 instance Default PaginationOptions where
   def = PaginationOptions 0 100
 
-newtype ID = ID { _unID :: Text } deriving (Show, Eq, FromJSON, ToJSON)
+newtype ID = ID { _unID :: Text } deriving (Show, Eq, ToJSON)
 
 makeClassy ''ID
+
+instance FromJSON ID where
+  parseJSON (String s)       = pure $ ID s
+  parseJSON (Number (N.I i)) = pure $ ID $ show i
+  parseJSON v                = typeMismatch "ID" v
 
 data Unit = Unit deriving (Show, Eq)
 
@@ -529,7 +535,7 @@ instance ToJSON POSIXWrapper where
 
 instance FromJSON LAnnotationEvent where
   parseJSON = withObject "AnnotationEvent" parseAnnotationEvent
-    where parseAnnotationEvent obj = AnnotationEvent <$> (obj .: "id") --DANGER: i think they send a number
+    where parseAnnotationEvent obj = AnnotationEvent <$> (obj .: "id")
                                                      <*> obj .: "title"
                                                      <*> obj .: "source"
                                                      <*> obj .: "description"
