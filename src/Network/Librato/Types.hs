@@ -89,6 +89,8 @@ module Network.Librato.Types ( LibratoM
                              , HasASName(..)
                              , AnnotationStream(..)
                              , HasAnnotationStream(..)
+                             , Link(..)
+                             , HasLink(..)
                              , HasMeasurement(..)) where
 
 import ClassyPrelude
@@ -505,11 +507,28 @@ instance ToJSON a => ToJSON (Alert a) where
                     , "name"               .= (a ^. alertName)
                     , "active"             .= (a ^. alertActive) ]
 
+data Link = Link { _linkRel   :: Text
+                 , _linkHref  :: Text
+                 , _linkLabel :: Maybe Text } deriving (Show, Eq)
+
+makeClassy ''Link
+
+instance FromJSON Link where
+  parseJSON = withObject "Link" parseLink
+    where parseLink obj = Link <$> obj .: "rel"
+                               <*> obj .: "href"
+                               <*> obj .: "label"
+
+instance ToJSON Link where
+  toJSON l = object [ "rel"   .= (l ^. linkRel)
+                    , "href"  .= (l ^. linkHref)
+                    , "label" .= (l ^. linkLabel) ]
+
 data AnnotationEvent i = AnnotationEvent { _annotationEventID          :: i 
                                          , _annotationEventTitle       :: Text
                                          , _annotationEventSource      :: Maybe Text
                                          , _annotationEventDescription :: Maybe Text
-                                         , _annotationEventLinks       :: [Text]
+                                         , _annotationEventLinks       :: [Link]
                                          -- should this be UTCTime and have me do the coversion?
                                          , _annotationEventStartTime   :: POSIXTime
                                          , _annotationEventEndTime     :: Maybe POSIXTime } deriving (Show, Eq)

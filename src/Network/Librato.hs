@@ -296,6 +296,7 @@ updateAnnotationEvent = curry (updateResource . AnnotationEventResource)
 deleteAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse ())
 deleteAnnotationEvent = curry (deleteResource . AnnotationEventResource)
 
+addLinkToAnnotationEvent :: ASName -> ID -> Link -> LibratoM IO (LibratoResponse ())
 addLinkToAnnotationEvent    = undefined
 removeLinkToAnnotationEvent = undefined
 
