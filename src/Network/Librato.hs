@@ -63,6 +63,8 @@ module Network.Librato ( getMetrics
                        , createAnnotationEvent
                        , updateAnnotationEvent
                        , deleteAnnotationEvent
+                       , addLinkToAnnotationEvent
+                       , removeLinkToAnnotationEvent
                        , module Network.Librato.Types) where
 
 
@@ -297,8 +299,10 @@ deleteAnnotationEvent :: ASName -> ID -> LibratoM IO (LibratoResponse ())
 deleteAnnotationEvent = curry (deleteResource . AnnotationEventResource)
 
 addLinkToAnnotationEvent :: ASName -> ID -> Link -> LibratoM IO (LibratoResponse ())
-addLinkToAnnotationEvent    = undefined
-removeLinkToAnnotationEvent = undefined
+addLinkToAnnotationEvent name eventId link = createResource $ AnnotationEventResource (name, eventId, link)
+
+removeLinkToAnnotationEvent :: ASName -> ID -> Link -> LibratoM IO (LibratoResponse ())
+removeLinkToAnnotationEvent name eventId link = deleteResource $ AnnotationEventResource (name, eventId, link)
 
 -----------------------------
 -- LibratoM tools

@@ -274,6 +274,10 @@ instance NamedResource (AnnotationEventResource (ASName, a)) where
   resourceName (AnnotationEventResource (asname, _)) = "annotations/" <> asname'
     where asname' = asname ^. unASName . to encodeUtf8
 
+instance NamedResource (AnnotationEventResource (ASName, a, b)) where
+  resourceName (AnnotationEventResource (asname, _, _)) = "annotations/" <> asname'
+    where asname' = asname ^. unASName . to encodeUtf8
+
 instance PayloadResource (AnnotationEventResource a) a where
   resourcePayload = annotationEventResourcePayload
 
@@ -285,6 +289,9 @@ instance PayloadWithID (ASName, ID) where
 
 instance PayloadWithID (ASName, LAnnotationEvent) where
   payloadID (_, aevent) = aevent ^. annotationEventID . unID . to encodeUtf8
+
+instance PayloadWithID (ASName, ID, a) where
+  payloadID (_, ID { _unID = eid }, _) = encodeUtf8 eid
 
 -------------------------------
 -- Generally applicable instances
