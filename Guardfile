@@ -6,27 +6,27 @@ guard :shell do
   end
 
   def ncmd(cmd, msg = cmd)
-    if system(cmd)
-      n "#{msg} SUCCEEDED"
+    output = `#{cmd}`
+    puts output
+    summary = output.lines.grep(/examples/).first
+
+    if $?.success?
+      n "Build Success!", summary
     else
-      n "#{msg} FAILED"
+      n "Failed", summary
     end
   end
  
-  def run_tests(module_path)
-    filename = "test/#{module_path}Spec.hs"
-
-    if File.exists?(filename)
-      ncmd("ghc -isrc -itest -e 'hspec spec' #{filename} test/Spec.hs")
-    end
+  def run_tests
+    ncmd("ghc -isrc -itest -e 'hspec spec' test/**/*.hs test/Spec.hs")
   end
 
   watch(%r{src/(.+)\.hs$}) do |m|
-    run_tests(m[1])
+    run_tests
   end
  
   watch(%r{test/(.+)Spec\.hs$}) do |m|
-    run_tests(m[1])
+    run_tests
   end
  
 end
