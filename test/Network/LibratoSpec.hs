@@ -23,12 +23,13 @@ spec = do
         toQuery fullMetricsSearch `shouldBe` [ ("tags[]", Just "tagone")
                                              , ("tags[]", Just "tagtwo")
                                              , ("name", Just "foo")]
+
   describe "GetAllMetrics" $ do
     it "request the correct path" $
-      matchResultingMocker noMetricsMocker getAllMetrics' $
+      matchResultingMocker recorder getAllMetrics' $
         allRequestsMatch [("GET", "/v1/metrics")]
     it "requests with HTTP basic authentication" $
-      matchResultingMocker noMetricsMocker getAllMetrics' $
+      matchResultingMocker recorder getAllMetrics' $
         hasRequestWithHeader ("Authorization", encodedAuth)
 
     describe "unauthorized request" $ do
@@ -38,7 +39,7 @@ spec = do
 
   describe "createMetrics" $ do
     it "requests the correct path" $
-      matchResultingMocker createMetricsMocker createMetrics' $
+      matchResultingMocker recorder createMetrics' $
         allRequestsMatch [("POST", "/v1/metrics")]
 
     it "returns ()" $
@@ -47,7 +48,7 @@ spec = do
 
     --TODO: JSON matcher?
     it "posts correct data" $
-      matchResultingMocker createMetricsMocker createMetrics' $
+      matchResultingMocker recorder createMetrics' $
         hasRequestWithBody "{\"gauges\":[{\"display_name\":\"Example Gauge\",\"name\":\"gauge_name\",\"period\":20,\"description\":\"gauge description\",\"source\":\"app1\"}],\"counters\":[{\"display_name\":\"Example Gauge\",\"name\":\"counter_name\",\"period\":20,\"description\":\"counter description\",\"source\":\"app1\"}]}"
 
     describe "validation error returned" $ do
@@ -56,12 +57,12 @@ spec = do
 
   describe "getMetric" $ do
     it "uses the name in the path" $
-      matchResultingMocker foundMetricMocker getMetric' $
+      matchResultingMocker recorder getMetric' $
         allRequestsMatch [("GET", "/v1/metrics/somemetric")]
 
   describe "deleteMetric" $ do
     it "makes a DELETE request to the correct path" $
-      matchResultingMocker deleteMetricMocker deleteMetric' $
+      matchResultingMocker recorder deleteMetric' $
         allRequestsMatch [("DELETE", "/v1/metrics/somemetric")]
 
     it "returns ()" $
@@ -75,7 +76,7 @@ spec = do
 
   describe "deleteMetrics" $ do
     it "requests the correct path" $
-      matchResultingMocker deleteMetricsMocker deleteMetrics' $
+      matchResultingMocker recorder deleteMetrics' $
         allRequestsMatch [("DELETE", "/v1/metrics")]
 
     it "returns ()" $
@@ -84,12 +85,12 @@ spec = do
 
     --TODO: JSON matcher?
     it "posts correct data" $
-      matchResultingMocker deleteMetricsMocker deleteMetrics' $
+      matchResultingMocker recorder deleteMetrics' $
         hasRequestWithBody "{\"names\":[\"foo\",\"bar\"]}"
 
   describe "getAnnotationEvent" $
     it "requests the correct path" $
-      matchResultingMocker foundAnnotationEventMocker getAnnotationEvent' $
+      matchResultingMocker recorder getAnnotationEvent' $
         allRequestsMatch [("GET", "/v1/annotations/somestream/123")]
 
 noMetricsMocker :: HTTPMocker
@@ -140,6 +141,11 @@ foundAnnotationEventMocker = def & responder . fakedInteractions <>~ [emptyRespo
   where emptyResponse  = (matcher, AlwaysReturns response)
         matcher        = matchPathAndMethod "/v1/annotations/somestream/123" "GET"
         response       = FakeResponse status200 "{}" []
+
+recorder :: HTTPMocker
+recorder = def & responder . fakedInteractions <>~ [interaction]
+  where interaction = (matchEverything, AlwaysReturns resp)
+        resp        = FakeResponse status200 "{}" []
 
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
