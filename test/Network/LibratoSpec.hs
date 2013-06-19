@@ -87,6 +87,11 @@ spec = do
       matchResultingMocker deleteMetricsMocker deleteMetrics' $
         hasRequestWithBody "{\"names\":[\"foo\",\"bar\"]}"
 
+  describe "getAnnotationEvent" $
+    it "requests the correct path" $
+      matchResultingMocker foundAnnotationEventMocker getAnnotationEvent' $
+        allRequestsMatch [("GET", "/v1/annotations/somestream/123")]
+
 noMetricsMocker :: HTTPMocker
 noMetricsMocker = def & responder . fakedInteractions <>~ [emptyResponse]
   where emptyResponse = (matcher, AlwaysReturns response)
@@ -130,12 +135,23 @@ deleteMetricNotFoundMocker = def & responder . fakedInteractions <>~ [emptyRespo
         matcher        = matchPathAndMethod "/v1/metrics/somemetric" "DELETE"
         response       = FakeResponse status404 "" []
 
+foundAnnotationEventMocker :: HTTPMocker
+foundAnnotationEventMocker = def & responder . fakedInteractions <>~ [emptyResponse]
+  where emptyResponse  = (matcher, AlwaysReturns response)
+        matcher        = matchPathAndMethod "/v1/annotations/somestream/123" "GET"
+        response       = FakeResponse status200 "{}" []
+
 getAllMetrics' = runLibratoM testingConfig $ getAllMetrics def
 
 deleteMetric' = runLibratoM testingConfig $ deleteMetric $ MetricName "somemetric"
 
 deleteMetrics' = runLibratoM testingConfig $ deleteMetrics [ MetricName "foo"
                                                            , MetricName "bar"]
+
+getAnnotationEvent' = runLibratoM testingConfig $ getAnnotationEvent asName defID
+  where asName = ASName "somestream"
+
+defID = ID "123"
 
 getMetric' = runLibratoM testingConfig $ getMetric metricLookup 
   where metricLookup = MetricLookup "somemetric"
